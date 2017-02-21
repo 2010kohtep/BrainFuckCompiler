@@ -18,17 +18,15 @@ const
 type
   TBrainFuckCompiler = object(TCompiler)
   private
-    FInCount: Integer; // Кол-во "." в коде (нужно для очистки стека в эпилоге)
-    FSrc: string; // Исходный код компилируемого файла
-    FSrcName: string; // Имя файла исходного кода без расширения
-    FSrcPos: Integer; // Номер текущей команды во время компиляции
+    FInCount: Integer; // Amount of "." in code (needs for stack cleaning in the epilogue)
+    FSrc: string; // Source code of compiled file
+    FSrcName: string; // Source code's file name without expansion
+    FSrcPos: Integer; // Number of the current compiling command
 
-    FCellsReg: TRegIndex; // Регистр, в котором хранится указатель на массив ячеек
-    FCellStart: Integer; // Ячейка, с которой начнётся работа
-    FInReg: TRegIndex; // Регистр, в котором хранится указатель на функцию putchar
-    FOutReg: TRegIndex; // Регистр, в котором хранится указатель на функцию getchar
-
-    FIgnoreUnknownCmds: Boolean;
+    FCellsReg: TRegIndex; // Register, that consists pointer to cells array
+    FCellStart: Integer; // Starting cell
+    FInReg: TRegIndex; // Register, that consists pointer at putchar function
+    FOutReg: TRegIndex; // Register, hat consists pointer at getchar function
 
     FLastCmdsData: array[0..15] of Integer;
     FLastCmds: TStack;
@@ -42,17 +40,17 @@ type
 
     procedure WriteMemSet(Reg: TRegIndex; Size: Cardinal; Value: Integer);
 
-    procedure WritePrologue; // Начало кода BrainFuck (инициализация стека и переменных)
-    procedure WriteEpilogue; // Окончание работы кода (освобождение данных и выход)
+    procedure WritePrologue; // BrainFuck binary code start (stack and variables initialization)
+    procedure WriteEpilogue; // BrainFuck binary code end (data release and exit)
     procedure WriteIn;
     procedure WriteOut;
 
     procedure Create;
-    // Инициализация настроек компилятор через параметры запуска
-    // Может, следует всё же воспользоваться constructor?
+    // Compiler config initialization via command line parameters
+    // Maybe I should use contructor?
     procedure Init;
 
-    // Чтение исходного кода и создание бинарных данных на его основе
+    // Read source code and create binary data on it's basis.
     procedure CompileCode(const Code: string);
     procedure ExecuteCode;
 
@@ -105,17 +103,16 @@ begin
 
   FOpt := False;
 
-  FCells := CELLS_DEF; // Размер массива ячеек (инициализация происходит в прологе)
-  FOpt := False; // Оптимизация
-  FInCount := 0; // Количество вызовов "."
+  FCells := CELLS_DEF; // Cells array size (inits in prologue)
+  FOpt := False; // Optimization
+  FInCount := 0; // Amount of "." calls
 
-  FCellsReg := rEbx; // Регистр хранения указателя на массив ячеек
-  FInReg := rEbp; // Регистр хранения функции "."
+  FCellsReg := rEbx; // Register that consists pointer to byte cells
+  FInReg := rEbp; // Register that consists "." function
   FOutReg := rEdi;
 
-  FSrcPos := 0; // Номер обрабатываемой интерпретатором команды
+  FSrcPos := 0; // Command number that processes by the interpreter
   FCellStart := 0;
-  FIgnoreUnknownCmds := False;
 
   FillChar(FLastCmdsData[0], SizeOf(FLastCmdsData), 0);
   FLastCmds.Create(@FLastCmdsData[0], SizeOf(FLastCmdsData));
@@ -153,6 +150,7 @@ begin
           Value := Format('%s\%s', [ExtractFileDir(ParamStr(0)), Value]);
 
         AssignFile(F, Value);
+
         {$I-}
         Reset(F);
         if IOResult <> 0 then
@@ -199,14 +197,11 @@ begin
         else
           FCellStart := StrToIntDef(Value, 0);
       end;
-
-      if Param = '-i' then
-        FIgnoreUnknownCmds := True;
     end;
   end;
 end;
 
-function Relative(FAddr, SAddr: Pointer): Pointer;
+function Relative(FAddr, SAddr: Pointer): Pointer; inline;
 begin
   Result := Pointer(Integer(FAddr) - Integer(SAddr) - 5);
 end;
@@ -233,11 +228,11 @@ var
 begin
   Start := RDTSC;
 
-  // Создание пролога функции (инициализация стека, регистров, ...).
+  // Create function prologue (stack, registers, ...).
   WritePrologue;
-  // Записать указатель на первый символ "Code" для более удобной работы с командами.
+  // Write pointer to "Code" first symbol for easier way to work with it
   P := PChar(Code);
-  // Создание стекового массива для адресов. Необходим для работы с циклами.
+  // Create a stack array of addresses. Needs to work with cycles.
   ArrStack.Create(@ArrData[0], SizeOf(ArrData));
 
   SetLength(Cells, FCells);
@@ -257,21 +252,11 @@ begin
         '-': WriteDecMem(FCellsReg);
         '.': WriteIn;
         ',': WriteOut;
-        '[':
-        begin
-        end;
+        '[': RaiseException('No optimization mode does not support loops.');
         ']':
-        begin
           if ArrStack.Length = 0 then
             RaiseException('Loop is not initialized by "%s" command.', ['[']);
-        end;
         '@': Break;
-        ' ', #9, #10, #13: ;
-      else
-        if FIgnoreUnknownCmds then
-          WriteLn('[DEBUG] Ignored unknown command: "', C, '".')
-        else
-          RaiseException('Unknown syntax command: "%s".', [C]);
       end;
     end
     else
@@ -281,14 +266,14 @@ begin
 
       C := P^;
 
-      // Команды, которые можно сжать в один операнд
+      // Commands that can be compressed into a single operand
       if CharInSet(C, ['>', '<', '+', '-']) then
       begin
         I := 0;
         repeat
           Inc(P);
 
-          // Пропустить символы, не влияющие ни на что
+          // Skip symbols that do not affect anything
           while CharInSet(P^, [' ', #9, #10, #13]) do Inc(P);
 
           Inc(I);
@@ -358,7 +343,7 @@ begin
         begin
           WriteCmpMem(FCellsReg, 0);
 
-          { Ручное создание инструкции "jz" }
+          { Create "jz" instruction manually }
           FBuffer.Write<Byte>($0F);
           FBuffer.Write<Byte>($80 or (4));
           FBuffer.Write<Cardinal>(0);
@@ -471,38 +456,24 @@ begin
   if Size <= 0 then
     Exit;
 
-{$REGION 'Старый алгоритм'}
-//  WriteXor(rEax, rEax);
-//  WriteMov(rEcx, Size);
-//  WriteMov(rEdx, Reg);
-//  Addr := IP;
-//
-//  WriteMovMem(rEdx, rEax);
-//  WriteInc(rEdx);
-//  WriteDec(rEcx);
-//  WriteJump(jtJnz, Addr);
-{$ENDREGION}
-
-  // Резервирование регистра edi
+  // Reserve edi register
   WritePush(rEdi);
 
-  // Небольшая оптимизация. Если нужно установить 0 в регистр, то делаем это с
-  // помощью команды xor.
+  //  A little optimization. If we need to set register as 0, we do it via "xor" command
   if Value = 0 then
     WriteXor(rEax, rEax)
   else
     WriteMov(rEax, Value);
 
-  // Lea нужен для того, чтобы не испортить сохранённое значение регистра edi.
+  // We need "lea" here to avoud spoil the saved value in edi
   WriteLea(rEdi, Reg, 4);
-  // Записать количество ячеек для обнуления
+  // Write amount of cells for zeroing
   WriteMov(rEcx, Size);
-  // Разделить на 4, так как мы будем использовать stosd для зануления.
+  // Divide by 4, because we are going to use stosd for zeroing
   WriteShr(rEcx, 2);
 
-  // Divisible - это переменная, которая хранит в себе результат проверки переменной
-  // Size на кратность четырём. Если она не кратна, то нужно добавить зануление
-  // оставшихся чисел.
+  // Divisible - is a variable, that contains result of checking of the
+  // possibility of division by four.
   Divisible := Size mod 4 = 0;
   if not Divisible then
   begin
@@ -530,7 +501,7 @@ end;
 
 procedure TBrainFuckCompiler.WritePrologue;
 begin
-  // Зарезервировать для указателя на ячейки памяти
+  // Reserve for pointer at cells
   WritePush(FCellsReg);
 
   if FOpt then
@@ -541,13 +512,12 @@ begin
     WriteMov(FOutReg, Cardinal(@getchar));
   end;
 
-  // Создать CellsCount ячеек для работы BrainFuck
+  // Create CellsCount cells
   WriteSub(rEsp, FCells);
-  // Заполнить ячейки нулями
+  // Fill cells with 0
   WriteMemSet(rEsp, FCells, 0);
 
-  // Записать указатель на ячейки памяти
-  // WriteMov(FCellsReg, rEsp);
+  // Write pointer at memory cells
   WriteLea(FCellsReg, rEsp, FCellStart);
 end;
 

@@ -1,5 +1,4 @@
 # Brainfuck Compiler (BFC)
-==============
 
 BFC is a compiler for the brainfuck programming language.
 

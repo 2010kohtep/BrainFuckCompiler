@@ -7,18 +7,18 @@ program bfc;
 {$REGION 'Minimise Size'}
 
   (* WEAKLINKRTTI:
-       По умолчанию - OFF
-       Влияет только на линкинг - методы не включаются в бинарный код,
-       поэтому RTTI не может найти и включить методы в реальном времени. *)
+       Default - OFF
+       It affects only the linking - methods are not included in the binary code,
+       that's why RTTI can not find and include methods in realtime. *)
 
   {$WEAKLINKRTTI ON}
 
-  (* Контролируют количество расширенной RTTI информации, котрая генерируется
-     для классов и записей - это отключает все RTTI опции и отключает создание
-     расширенной RTTI информации. *)
+  (*  Controls the amount of extended RTTI information, which generated
+      for classes and records - it disables all RTTI options and disables creation
+      of extended RTTI information. *)
   {$RTTI EXPLICIT METHODS([]) PROPERTIES([]) FIELDS([])}
 
-  (* Удаление секции .reloc, которая не нужна для исполняемых файлов. *)
+  (* Remove .reloc section, which is not needed for executable files. *)
 
   {$SETPEFLAGS 1}
 
