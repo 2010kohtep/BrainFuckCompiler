@@ -45,8 +45,6 @@ label
 begin
   Compiler.Create;
 
-  Compiler.WriteShl(rEax, 4);
-
   WriteLn('Brainfuck Compiler Version 1.0.0');
   WriteLn;
 

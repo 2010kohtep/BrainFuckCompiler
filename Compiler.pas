@@ -457,7 +457,6 @@ begin
   end;
 end;
 
-// add [reg], reg
 procedure TCompiler.WriteAddMem(RegTo, RegFrom: TRegIndex);
 begin
   FBuffer.Write<Byte>($01);
