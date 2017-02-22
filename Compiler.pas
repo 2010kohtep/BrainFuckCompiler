@@ -36,7 +36,6 @@ type
     FTarget: TTarget;
 
     FSwapOperand: Boolean;
-    FChangeOperandSize: Boolean;
     FForceMemory: Boolean;
   public
     {$REGION 'Properties'}
@@ -53,40 +52,62 @@ type
     procedure WriteModRM(AddrMod: TAddressingType; Dest, Source: TRegIndex); overload; stdcall;
     procedure WriteModRM(AddrMod: TAddressingType; Dest: TRegIndex; IsBase, B1, B2: Boolean); overload; stdcall;
     procedure WriteSIB(Scale: TNumberScale; Base, Index: TRegIndex);
+    procedure WriteBase(Dest, Base, Index: TRegIndex; Scale: TNumberScale; Offset: Integer); stdcall;
     procedure WritePrefix(Prefix: TCmdPrefix);
     {$ENDREGION}
 
+    procedure WriteAnd(Dest, Base, Index: TRegIndex; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteAnd(Dest, Source: TRegIndex); overload;
     procedure WriteAnd(Dest: TRegIndex; Value: Integer); overload;
+
+    procedure WriteMov(Dest, Base, Index: TRegIndex; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteMov(Dest, Source: TRegIndex); overload;
     procedure WriteMov(Dest: TRegIndex; Value: Integer); overload;
+
     procedure WriteLea(Dest, Base, Index: TRegIndex; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteLea(Dest, Source: TRegIndex; Offset: Integer = 0); overload;
     procedure WriteLea(Dest: TRegIndex; Value: Integer); overload;
+
+    procedure WriteAdd(Dest, Base, Index: TRegIndex; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteAdd(Dest: TRegIndex; Value: Integer); overload;
     procedure WriteAdd(Dest, Source: TRegIndex); overload;
+
     procedure WriteSub(Dest: TRegIndex; Value: Integer); overload;
     procedure WriteSub(Dest, Source: TRegIndex); overload;
+
     procedure WriteTest(Dest, Source: TRegIndex); overload;
     procedure WriteTest(Dest: TRegIndex; Value: Integer); overload;
+
     procedure WriteXor(Dest, Source: TRegIndex); overload;
     procedure WriteXor(Dest: TRegIndex; Value: Integer); overload;
+
     procedure WriteCmp(Dest, Source: TRegIndex); overload;
     procedure WriteCmp(Dest: TRegIndex; Value: Integer); overload;
+
     procedure WritePush(Source: TRegIndex; Dereference: Boolean = False); overload;
     procedure WritePush(Value: Integer; Dereference: Boolean = False); overload;
+
     procedure WritePop(Source: TRegIndex); overload;
     procedure WritePop(Addr: Pointer); overload;
+
     procedure WriteRet(Bytes: Integer = 0);
+
     procedure WriteNop;
+
     procedure WriteCall(Addr: Pointer); overload;
     procedure WriteCall(Reg: TRegIndex); overload;
+
     procedure WriteInt(Interrupt: Integer);
+
     procedure WriteInc(Reg: TRegIndex);
+
     procedure WriteDec(Reg: TRegIndex);
+
     procedure WriteXchg(Dest, Source: TRegIndex); overload;
     procedure WriteXchg(Dest: TRegIndex; Address: Pointer); overload;
+
     procedure WriteSetCC(Dest: TRegIndex; Condition: TCondition);
+
     // ...
 
     procedure WriteAddMem(RegTo, RegFrom: TRegIndex); overload;
@@ -195,29 +216,7 @@ procedure TCompiler.WriteLea(Dest, Base, Index: TRegIndex; Scale: TNumberScale; 
 begin
   FBuffer.Write<Byte>($8D);
 
-  if Index = rEsp then
-    Swap(Index, Base);
-
-  if Offset <> 0 then
-  begin
-    if IsRel8(Offset) then
-    begin
-      WriteModRM(atBaseAddr8B, TRegIndex(4), Dest);
-      WriteSIB(Scale, Base, Index);
-      FBuffer.Write<Byte>(Offset);
-    end
-    else
-    begin
-      WriteModRM(atBaseAddr32B, TRegIndex(4), Dest);
-      WriteSIB(Scale, Base, Index);
-      FBuffer.Write<Cardinal>(Offset);
-    end;
-  end
-  else
-  begin
-    WriteModRM(atIndirAddr, TRegIndex(4), Dest);
-    WriteSIB(Scale, Base, Index);
-  end;
+  WriteBase(Dest, Base, Index, Scale, Offset);
 end;
 
 procedure TCompiler.WriteLea(Dest: TRegIndex; Value: Integer);
@@ -301,11 +300,18 @@ begin
   FBuffer.Write<Byte>((Byte(AddrMod) shl 6) or (Byte(Dest) shl 3));
 end;
 
-// mov reg, num
 procedure TCompiler.WriteMov(Dest: TRegIndex; Value: Integer);
 begin
   FBuffer.Write<Byte>($B8 or Byte(Dest));
   FBuffer.Write<Cardinal>(Value);
+end;
+
+procedure TCompiler.WriteMov(Dest, Base, Index: TRegIndex; Scale: TNumberScale;
+  Offset: Integer);
+begin
+  FBuffer.Write<Byte>($8B);
+
+  WriteBase(Dest, Base, Index, Scale, Offset);
 end;
 
 procedure TCompiler.WriteMovMem(Dest: TRegIndex; Value: Integer);
@@ -345,7 +351,6 @@ begin
   FBuffer.Write<Byte>($90);
 end;
 
-// mov reg, reg
 procedure TCompiler.WriteMov(Dest, Source: TRegIndex);
 begin
   FBuffer.Write<Byte>($89);
@@ -374,7 +379,6 @@ begin
   end;
 end;
 
-// inc reg
 procedure TCompiler.WriteInc(Reg: TRegIndex);
 begin
   FBuffer.Write<Byte>($40 or Byte(Reg));
@@ -388,7 +392,6 @@ end;
 procedure TCompiler.Create;
 begin
   FSwapOperand := False;
-  FChangeOperandSize := False;
 end;
 
 function TCompiler.InstructionPtr: Pointer;
@@ -465,11 +468,17 @@ begin
   WriteModRM(atRegisters, Dest, Source);
 end;
 
-procedure TCompiler.WriteAddMem(RegTo: TRegIndex; Value: Byte);
-const
-  Opcode = $80; // byte ptr
+procedure TCompiler.WriteAdd(Dest, Base, Index: TRegIndex; Scale: TNumberScale;
+  Offset: Integer);
 begin
-  FBuffer.Write<Byte>(Opcode);
+  FBuffer.Write<Byte>($03);
+
+  WriteBase(Dest, Base, Index, Scale, Offset);
+end;
+
+procedure TCompiler.WriteAddMem(RegTo: TRegIndex; Value: Byte);
+begin
+  FBuffer.Write<Byte>($80);
   FBuffer.Write<Byte>(Byte(RegTo));
   FBuffer.Write<Byte>(Value);
 end;
@@ -493,6 +502,59 @@ begin
     FBuffer.Write<Byte>($81);
     WriteModRM(atRegisters, Dest, TRegIndex(4));
     FBuffer.Write<Integer>(Value);
+  end;
+end;
+
+procedure TCompiler.WriteAnd(Dest, Base, Index: TRegIndex; Scale: TNumberScale;
+  Offset: Integer);
+begin
+  FBuffer.Write<Byte>($23);
+
+  WriteBase(Dest, Base, Index, Scale, Offset);
+end;
+
+procedure TCompiler.WriteBase(Dest, Base, Index: TRegIndex; Scale: TNumberScale;
+  Offset: Integer);
+begin
+  if Index = rEsp then
+    Swap(Index, Base);
+
+  if Offset <> 0 then
+  begin
+    if IsRel8(Offset) then
+    begin
+      if (Scale = nsNo) and (Index = Base) then
+        WriteModRM(atBaseAddr8B, Base, Dest)
+      else
+      begin
+        WriteModRM(atBaseAddr8B, TRegIndex(4), Dest);
+        WriteSIB(Scale, Base, Index);
+      end;
+
+      FBuffer.Write<Byte>(Offset);
+    end
+    else
+    begin
+      if (Scale = nsNo) and (Index = Base) then
+        WriteModRM(atBaseAddr32B, Base, Dest)
+      else
+      begin
+        WriteModRM(atBaseAddr32B, TRegIndex(4), Dest);
+        WriteSIB(Scale, Base, Index);
+      end;
+
+      FBuffer.Write<Cardinal>(Offset);
+    end;
+  end
+  else
+  begin
+    if (Scale = nsNo) and (Index = Base) then
+      WriteModRM(atIndirAddr, Base, Dest)
+    else
+    begin
+      WriteModRM(atIndirAddr, TRegIndex(4), Dest);
+      WriteSIB(Scale, Base, Index);
+    end;
   end;
 end;
 

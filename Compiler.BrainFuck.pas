@@ -3,7 +3,7 @@ unit Compiler.BrainFuck;
 interface
 
 uses
-  System.SysUtils, &Assembler.Global, Winapi.Windows, Compiler, Stack;
+  System.SysUtils, &Assembler.Global, Winapi.Windows, Compiler, Compiler.TicksMeter, Stack;
 
 const
   msvcrt = 'msvcrt.dll';
@@ -206,11 +206,6 @@ begin
   Result := Pointer(Integer(FAddr) - Integer(SAddr) - 5);
 end;
 
-function RDTSC: Int64;
-asm
-  rdtsc
-end;
-
 procedure TBrainFuckCompiler.CompileCode(const Code: string);
 var
   JumpAddr, P2: Pointer;
@@ -224,9 +219,9 @@ var
   Cells: array of Byte;
   CellsPtr: Integer;
 
-  Start: Int64;
+  Ticks: TTicksMeter;
 begin
-  Start := RDTSC;
+  Ticks.Start;
 
   // Create function prologue (stack, registers, ...).
   WritePrologue;
@@ -252,7 +247,7 @@ begin
         '-': WriteDecMem(FCellsReg);
         '.': WriteIn;
         ',': WriteOut;
-        '[': RaiseException('No optimization mode does not support loops.');
+        '[': RaiseException('"No optimization" mode does not support loops.');
         ']':
           if ArrStack.Length = 0 then
             RaiseException('Loop is not initialized by "%s" command.', ['[']);
@@ -380,8 +375,10 @@ begin
     Inc(P);
   end;
 
+  Ticks.Stop;
+
   WriteLn('Compiled successfully. Code size: ', FBuffer.Position, ' bytes.');
-  WriteLn('Cycles spent: ', RDTSC - Start, '.');
+  WriteLn(Ticks.ToString);
   WriteLn;
 
   WriteEpilogue;

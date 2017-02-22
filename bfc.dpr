@@ -10,7 +10,6 @@ program bfc;
        Default - OFF
        It affects only the linking - methods are not included in the binary code,
        that's why RTTI can not find and include methods in realtime. *)
-
   {$WEAKLINKRTTI ON}
 
   (*  Controls the amount of extended RTTI information, which generated
@@ -19,7 +18,6 @@ program bfc;
   {$RTTI EXPLICIT METHODS([]) PROPERTIES([]) FIELDS([])}
 
   (* Remove .reloc section, which is not needed for executable files. *)
-
   {$SETPEFLAGS 1}
 
 {$ENDREGION}
