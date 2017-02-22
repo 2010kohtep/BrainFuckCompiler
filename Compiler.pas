@@ -3,7 +3,7 @@ unit Compiler;
 interface
 
 uses
-  SysUtils, Buffer, &Assembler.Global;
+  &Assembler.Global, System.SysUtils, Buffer;
 
 type
   TJumpType = (jtJo, jtJno,
@@ -72,12 +72,14 @@ type
     procedure WriteAdd(Dest: TRegIndex; Value: Integer); overload;
     procedure WriteAdd(Dest, Source: TRegIndex); overload;
 
+    procedure WriteSub(Dest, Base, Index: TRegIndex; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteSub(Dest: TRegIndex; Value: Integer); overload;
     procedure WriteSub(Dest, Source: TRegIndex); overload;
 
     procedure WriteTest(Dest, Source: TRegIndex); overload;
     procedure WriteTest(Dest: TRegIndex; Value: Integer); overload;
 
+    procedure WriteXor(Dest, Base, Index: TRegIndex; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteXor(Dest, Source: TRegIndex); overload;
     procedure WriteXor(Dest: TRegIndex; Value: Integer); overload;
 
@@ -109,7 +111,12 @@ type
 
     procedure WriteSetCC(Dest: TRegIndex; Condition: TCondition);
 
-    // ...
+    procedure WriteNot(Dest: TRegIndex);
+
+    procedure WriteShr(Reg: TRegIndex; Count: Byte);
+    procedure WriteShl(Reg: TRegIndex; Count: Byte);
+
+    // Unacceptable code below ...
 
     procedure WriteAddMem(RegTo, RegFrom: TRegIndex); overload;
     procedure WriteAddMem(RegTo: TRegIndex; Value: Byte); overload;
@@ -131,7 +138,7 @@ type
     procedure WriteStoS(Prefix: TCmdPrefix; Count: TStrSize); overload;
     procedure WriteStoS(Count: TStrSize); overload;
 
-    procedure WriteShr(Reg: TRegIndex; Count: Byte);
+    // Unacceptable code above ...
 
     class function IsRel8(Value: Integer): Boolean; static; inline;
     class procedure Swap(var FReg: TRegIndex; var SReg: TRegIndex); static; inline;
@@ -352,6 +359,12 @@ begin
   FBuffer.Write<Byte>($90);
 end;
 
+procedure TCompiler.WriteNot(Dest: TRegIndex);
+begin
+  FBuffer.Write<Byte>($F7);
+  WriteModRM(atRegisters, Dest, TRegIndex(2));
+end;
+
 procedure TCompiler.WriteMov(Dest, Source: TRegIndex);
 begin
   FBuffer.Write<Byte>($89);
@@ -387,7 +400,7 @@ end;
 
 procedure TCompiler.RaiseException(const Text: string);
 begin
-  raise SysUtils.Exception.CreateFmt('%s', [Text]);
+  raise System.SysUtils.Exception.CreateFmt('%s', [Text]);
 end;
 
 procedure TCompiler.Create;
@@ -661,6 +674,13 @@ begin
   WriteModRM(atRegisters, Dest, TRegIndex(3));
 end;
 
+procedure TCompiler.WriteShl(Reg: TRegIndex; Count: Byte);
+begin
+  FBuffer.Write<Byte>($C1);
+  WriteModRM(atRegisters, Reg, TRegIndex(4));
+  FBuffer.Write<Byte>(Count);
+end;
+
 procedure TCompiler.WriteShr(Reg: TRegIndex; Count: Byte);
 begin
   FBuffer.Write<Byte>($C1);
@@ -720,6 +740,14 @@ begin
   WriteModRM(atRegisters, Dest, Source);
 end;
 
+procedure TCompiler.WriteSub(Dest, Base, Index: TRegIndex; Scale: TNumberScale;
+  Offset: Integer);
+begin
+  FBuffer.Write<Byte>($2B);
+
+  WriteBase(Dest, Base, Index, Scale, Offset);
+end;
+
 procedure TCompiler.WriteSubMem(Reg: TRegIndex; Value: Byte);
 begin
   FBuffer.Write<Byte>($80);
@@ -761,7 +789,17 @@ end;
 
 procedure TCompiler.WriteXchg(Dest: TRegIndex; Address: Pointer);
 begin
+  FBuffer.Write<Byte>($87);
+  WriteModRM(atIndirAddr, TRegIndex(5), Dest);
+  FBuffer.Write<Pointer>(Address);
+end;
 
+procedure TCompiler.WriteXor(Dest, Base, Index: TRegIndex; Scale: TNumberScale;
+  Offset: Integer);
+begin
+  FBuffer.Write<Byte>($33);
+
+  WriteBase(Dest, Base, Index, Scale, Offset);
 end;
 
 procedure TCompiler.WriteXor(Dest: TRegIndex; Value: Integer);

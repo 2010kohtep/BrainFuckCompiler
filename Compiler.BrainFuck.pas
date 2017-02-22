@@ -25,7 +25,7 @@ type
 
     FCellsReg: TRegIndex; // Register, that consists pointer to cells array
     FCellStart: Integer; // Starting cell
-    FInReg: TRegIndex; // Register, hat consists pointer at getchar function
+    FInReg: TRegIndex; // Register, that consists pointer at getchar function
     FOutReg: TRegIndex; // Register, that consists pointer at putchar function
 
     FLastCmdsData: array[0..15] of Integer;
@@ -216,7 +216,7 @@ var
   JumpAddr, P2: Pointer;
   P: PChar;
   C: Char;
-  I: Integer;
+  CmdCount: Integer;
 
   ArrStack: TStack;
   ArrData: array[0..255] of Integer;
@@ -269,14 +269,14 @@ begin
       // Commands that can be compressed into a single operand
       if CharInSet(C, ['>', '<', '+', '-']) then
       begin
-        I := 0;
+        CmdCount := 0;
         repeat
           Inc(P);
 
           // Skip symbols that do not affect anything
           while CharInSet(P^, [' ', #9, #10, #13]) do Inc(P);
 
-          Inc(I);
+          Inc(CmdCount);
         until (P^ <> C) or (P^ = #0);
 
         {$REGION 'Optimizable commands'}
@@ -284,10 +284,10 @@ begin
           '>':
           begin
             FLastCmds.Push(Integer(C));
-            if I > 1 then
+            if CmdCount > 1 then
             begin
-              WriteAdd(FCellsReg, I);
-              Inc(CellsPtr, I);
+              WriteAdd(FCellsReg, CmdCount);
+              Inc(CellsPtr, CmdCount);
             end
             else
             begin
@@ -297,10 +297,10 @@ begin
           end;
 
           '<':
-          if I > 1 then
+          if CmdCount > 1 then
           begin
-            WriteSub(FCellsReg, I);
-            Dec(CellsPtr, I);
+            WriteSub(FCellsReg, CmdCount);
+            Dec(CellsPtr, CmdCount);
           end
           else
           begin
@@ -309,10 +309,10 @@ begin
           end;
 
           '+':
-          if I > 1 then
+          if CmdCount > 1 then
           begin
-            WriteAddMem(FCellsReg, I);
-            Inc(Cells[CellsPtr], I);
+            WriteAddMem(FCellsReg, CmdCount);
+            Inc(Cells[CellsPtr], CmdCount);
           end
           else
           begin
@@ -321,10 +321,10 @@ begin
           end;
 
           '-':
-          if I > 1 then
+          if CmdCount > 1 then
           begin
-            WriteSubMem(FCellsReg, I);
-            Dec(Cells[CellsPtr], I);
+            WriteSubMem(FCellsReg, CmdCount);
+            Dec(Cells[CellsPtr], CmdCount);
           end
           else
           begin
@@ -332,7 +332,6 @@ begin
             Dec(Cells[CellsPtr]);
           end;
         end;
-
 
         FLastCmds.Push(Integer(C));
         Continue;
