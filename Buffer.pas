@@ -2,15 +2,17 @@ unit Buffer;
 
 interface
 
+uses
+  System.SysUtils;
+
 const
   BUF_MINSIZE = 64;
   BUF_REALLOCSIZE = 64;
 
 type
-  TBytes = array of Byte;
-
   TBuffer = object
   protected
+    FAutoExtention: Boolean;
     FData: Pointer;
     FSize: Integer;
     FOffset: Integer;
@@ -18,7 +20,7 @@ type
     property Data: Pointer read FData;
     property Position: Integer read FOffset;
 
-    constructor Create;
+    constructor Create(Size: Integer);
     destructor Destroy;
 
     procedure Seek(Size: Integer);
@@ -33,11 +35,22 @@ implementation
 
 { TBuffer }
 
-constructor TBuffer.Create;
+constructor TBuffer.Create(Size: Integer);
 begin
-  GetMem(FData, BUF_MINSIZE);
-  FSize := BUF_MINSIZE;
-  FOffset := 0;
+  if Size = 0 then
+  begin
+    GetMem(FData, BUF_MINSIZE);
+    FSize := BUF_MINSIZE;
+    FOffset := 0;
+    FAutoExtention := True;
+  end
+  else
+  begin
+    GetMem(FData, BUF_MINSIZE);
+    FSize := Size;
+    FOffset := 0;
+    FAutoExtention := False;
+  end;
 end;
 
 destructor TBuffer.Destroy;
@@ -79,18 +92,28 @@ begin
 
     if FOffset + Len > FSize then
     begin
-      Inc(FSize, Len + BUF_REALLOCSIZE);
-      ReallocMem(FData, FSize);
+      if FAutoExtention then
+      begin
+        Inc(FSize, Len + BUF_REALLOCSIZE);
+        ReallocMem(FData, FSize);
+      end
+      else
+        raise Exception.Create('TBuffer: Overflowed.');
     end;
 
-    Write(PPointer(PPointer(@A)^)^, Len);
+    Write(PPointer(@A)^^, Len);
   end
   else
   begin
     if FOffset + SizeOf(A) > FSize then
     begin
-      Inc(FSize, SizeOf(A) + BUF_REALLOCSIZE);
-      ReallocMem(FData, FSize);
+      if FAutoExtention then
+      begin
+        Inc(FSize, SizeOf(A) + BUF_REALLOCSIZE);
+        ReallocMem(FData, FSize);
+      end
+      else
+        raise Exception.Create('TBuffer: Overflowed.');
     end;
 
     Write(A, SizeOf(T));

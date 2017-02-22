@@ -25,8 +25,8 @@ type
 
     FCellsReg: TRegIndex; // Register, that consists pointer to cells array
     FCellStart: Integer; // Starting cell
-    FInReg: TRegIndex; // Register, that consists pointer at putchar function
-    FOutReg: TRegIndex; // Register, hat consists pointer at getchar function
+    FInReg: TRegIndex; // Register, hat consists pointer at getchar function
+    FOutReg: TRegIndex; // Register, that consists pointer at putchar function
 
     FLastCmdsData: array[0..15] of Integer;
     FLastCmds: TStack;
@@ -84,6 +84,7 @@ begin
   Len := Length(Commands);
 
   if FLastCmds.Length >= Len then
+  begin
     for I := 0 to Len - 1 do
     begin
        C := Char(FLastCmds.Get(FLastCmds.Length - Len + I));
@@ -91,15 +92,19 @@ begin
        if C <> Commands[I] then
          Exit(False);
     end;
+  end
+  else
+    Exit(False);
 
-  Result := True;
+  Exit(True);
 end;
 
 procedure TBrainFuckCompiler.Create;
 begin
   inherited;
 
-  FBuffer.Create;
+  // I believe that 1048576 is enough bytes for compiled code
+  FBuffer.Create(1024 * 1024);
 
   FOpt := False;
 
@@ -109,7 +114,7 @@ begin
 
   FCellsReg := rEbx; // Register that consists pointer to byte cells
   FInReg := rEbp; // Register that consists "." function
-  FOutReg := rEdi;
+  FOutReg := rEdi; // Register that consists "," function
 
   FSrcPos := 0; // Command number that processes by the interpreter
   FCellStart := 0;
@@ -142,7 +147,7 @@ begin
       Param := LowerCase(ParamStr(I));
       Value := LowerCase(ParamStr(Succ(I)));
 
-      if Param = '-file' then
+      if (Param = '-file') or (Param = '-f') then
       begin
         FSrcName := ChangeFileExt(Value, '');
 
@@ -176,7 +181,7 @@ begin
       if Param = '-o' then
         FOpt := True;
 
-      if Param = '-cells' then
+      if (Param = '-cells') or (Param = '-c') then
       begin
         if (not TryStrToInt(Value, L)) or (L < CELLS_MIN) then
           FCells := CELLS_DEF
@@ -184,7 +189,7 @@ begin
           FCells := L;
       end;
 
-      if Param = '-begin' then
+      if (Param = '-begin') or (Param = '-b') then
       begin
         if Value = 'center' then
           FCellStart := FCells div 2
@@ -274,6 +279,7 @@ begin
           Inc(I);
         until (P^ <> C) or (P^ = #0);
 
+        {$REGION 'Optimizable commands'}
         case C of
           '>':
           begin
@@ -327,6 +333,7 @@ begin
           end;
         end;
 
+
         FLastCmds.Push(Integer(C));
         Continue;
       end;
@@ -345,6 +352,7 @@ begin
 
           ArrStack.Push(IP);
         end;
+
         ']':
         begin
           if ArrStack.Length = 0 then
@@ -417,31 +425,23 @@ begin
     WritePop(FOutReg);
   end;
 
- WritePop(FCellsReg);
+  WritePop(FCellsReg);
 
- WriteRet;
+  WriteRet;
 end;
 
 procedure TBrainFuckCompiler.WriteIn;
 begin
-  // mov eax, [edi]
-  FBuffer.Write<Byte>($8B);
-  FBuffer.Write<Byte>(Byte(FCellsReg));
-
-  // push eax // WriteToStack: PInteger(edi)^
+  WriteMov(rEax, FCellsReg, FCellsReg);
   WritePush(rEax);
 
   if FOpt then
   begin
-    // call ebx
     WriteCall(FInReg);
     WritePop(rEcx);
   end
   else
-  begin
-    // P := GetProcAddress(GetModuleHandle(msvcrt), 'putchar');
     WriteCall(@Print);
-  end;
 
   Inc(FInCount);
 end;

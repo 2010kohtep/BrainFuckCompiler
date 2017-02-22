@@ -81,6 +81,7 @@ type
     procedure WriteXor(Dest, Source: TRegIndex); overload;
     procedure WriteXor(Dest: TRegIndex; Value: Integer); overload;
 
+    procedure WriteCmp(Dest, Base, Index: TRegIndex; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteCmp(Dest, Source: TRegIndex); overload;
     procedure WriteCmp(Dest: TRegIndex; Value: Integer); overload;
 
@@ -584,6 +585,14 @@ begin
     WriteModRM(atRegisters, Dest, TRegIndex(7));
     FBuffer.Write<Integer>(Value);
   end;
+end;
+
+procedure TCompiler.WriteCmp(Dest, Base, Index: TRegIndex; Scale: TNumberScale;
+  Offset: Integer);
+begin
+  FBuffer.Write<Byte>($3B);
+
+  WriteBase(Dest, Base, Index, Scale, Offset);
 end;
 
 procedure TCompiler.WriteCmpMem(Reg: TRegIndex; Value: Byte);

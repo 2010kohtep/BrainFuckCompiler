@@ -19,7 +19,7 @@ type
 
   TAddressingType = (atIndirAddr,   // 00b
                      atBaseAddr8B,  // 01b
-                     atBaseAddr32B, // 10b (16B for 16-bit ÎS)
+                     atBaseAddr32B, // 10b (16B for 16-bit OS)
                      atRegisters);  // 11b
 
   // SIB – Scale Index Base
