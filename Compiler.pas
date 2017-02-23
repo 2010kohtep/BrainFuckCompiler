@@ -55,6 +55,7 @@ type
     {$REGION 'Define Functions'}
     procedure DB(Value: Byte); overload;
     procedure DB(const Values: array of Byte); overload;
+    procedure DB(Value: PAnsiChar); overload;
 
     procedure DW(Value: SmallInt); overload;
     procedure DW(const Values: array of SmallInt); overload;
@@ -422,6 +423,11 @@ end;
 procedure TCompiler.DB(Value: Byte);
 begin
   FBuffer.Write<Byte>(Value);
+end;
+
+procedure TCompiler.DB(Value: PAnsiChar);
+begin
+  FBuffer.Write<PAnsiChar>(Value);
 end;
 
 procedure TCompiler.DD(const Values: array of Integer);

@@ -22,6 +22,7 @@ type
     function Pop: Integer;
 
     function Get(I: Integer): Integer;
+    function GetLast: Integer;
   end;
 
 implementation
@@ -39,6 +40,14 @@ end;
 function TStack.Get(I: Integer): Integer;
 begin
   Result := TIntegers(FStack)[I];
+end;
+
+function TStack.GetLast: Integer;
+begin
+  if FLength <> 0 then
+    Result := Get(FLength - 1)
+  else
+    Result := Get(FLength);
 end;
 
 function TStack.Pop: Integer;

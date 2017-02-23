@@ -1,5 +1,7 @@
 unit Compiler.BrainFuck;
 
+{$WARN WIDECHAR_REDUCED OFF}
+
 interface
 
 uses
@@ -57,6 +59,7 @@ type
     procedure ExecuteCode;
 
     function CheckLastCode(const Commands: array of Char): Boolean;
+    function CheckCode(const Cmds: string): Boolean;
 
     // Brainfuck Compiled Unit
     procedure SaveAsBCU;
@@ -75,6 +78,16 @@ end;
 function Read: AnsiChar; register;
 begin
   Result := getchar;
+end;
+
+function TBrainFuckCompiler.CheckCode(const Cmds: string): Boolean;
+var
+  P: PChar;
+begin
+  P := PChar(@FSrc[FSrcPos + 1]);
+
+  Result := StrLIComp(P, PChar(@Cmds[1]), Length(Cmds)) = 0;
+  // Result := Copy(FSrc, FSrcPos, Length(Cmds)) = Cmds;
 end;
 
 function TBrainFuckCompiler.CheckLastCode(
@@ -137,8 +150,7 @@ end;
 
 procedure TBrainFuckCompiler.Init;
 var
-  Value, Param: string;
-  I, L: Integer;
+  Value: string;
 begin
   if FindCmdLineSwitch('F', Value) then
     LoadFromFile(Value);
@@ -225,7 +237,7 @@ end;
 
 procedure TBrainFuckCompiler.CompileCode;
 var
-  JumpAddr, P2: Pointer;
+  JmpBegin: Pointer;
   P: PChar;
   C: Char;
   CmdCount: Integer;
@@ -274,7 +286,18 @@ begin
   begin
     while P^ <> #0 do
     begin
-      Inc(FSrcPos);
+      if CheckCode('[-]') or CheckCode('[+]') then
+      begin
+        WriteMovMem(FCellsReg, 0);
+
+        FLastCmds.Push<Char>('[');
+        FLastCmds.Push<Char>('?');
+        FLastCmds.Push<Char>(']');
+
+        Inc(P, 3);
+        Inc(FSrcPos, 3);
+        Continue;
+      end;
 
       C := P^;
 
@@ -291,6 +314,8 @@ begin
 
           Inc(CmdCount);
         until (P^ <> C) or (P^ = #0);
+
+        Inc(FSrcPos, CmdCount);
 
         {$REGION 'Optimizable commands'}
         case C of
@@ -350,17 +375,17 @@ begin
         Continue;
       end;
 
+      Inc(FSrcPos);
+
       case C of
         '.': WriteIn;
         ',': WriteOut;
         '[':
         begin
-          WriteCmpMem(FCellsReg, 0);
+          if not (Char(FLastCmds.GetLast) in ['+', '-']) then
+            WriteCmpMem(FCellsReg, 0);
 
-          { Create "jz" instruction manually }
-          FBuffer.Write<Byte>($0F);
-          FBuffer.Write<Byte>($80 or (4));
-          FBuffer.Write<Cardinal>(0);
+          WriteJump(jtJz, Pointer($AAAAAAAA));
 
           ArrStack.Push<Pointer>(IP);
         end;
@@ -370,26 +395,18 @@ begin
           if ArrStack.Length = 0 then
             RaiseException('Loop is not initialized by "%s" command.', ['[']);
 
-          P2 := Pointer(ArrStack.Pop);
+          JmpBegin := Pointer(ArrStack.Pop);
 
-          WriteCmpMem(FCellsReg, 0);
-          WriteJump(jtJnz, P2);
+          if not (Char(FLastCmds.GetLast) in ['+', '-']) then
+            WriteCmpMem(FCellsReg, 0);
 
-          JumpAddr := Relative(IP, Pointer(Integer(P2) - 5));
+          WriteJump(jtJnz, JmpBegin);
 
-          PPointer(Integer(P2) - 4)^ := JumpAddr;
+          PPointer(Integer(JmpBegin) - 4)^ := Relative(IP, Pointer(Integer(JmpBegin) - 5));
         end;
       end;
 
       FLastCmds.Push<Char>(C);
-
-      if CheckLastCode(['[', '-', ']']) then
-      begin
-        FBuffer.Seek(-16); // replace this with something more appropriate
-
-        if Byte(Cells[CellsPtr] + 1) <> 0 then
-          WriteMovMem(FCellsReg, 0);
-      end;
 
       Inc(P);
     end;

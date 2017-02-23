@@ -51,7 +51,6 @@ begin
     PrintSwitchValue('-C <int>', 'Elements count.');
     PrintSwitchValue('-B <int>', 'Start cell position.');
     PrintSwitchValue('-O', 'Optimization.');
-    ReadLn;
     Exit;
   end
   else

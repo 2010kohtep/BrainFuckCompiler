@@ -3,7 +3,7 @@ unit Buffer;
 interface
 
 uses
-  System.SysUtils;
+  System.AnsiStrings, System.SysUtils;
 
 const
   BUF_MINSIZE = 64;
@@ -24,6 +24,7 @@ type
     destructor Destroy;
 
     procedure Seek(Size: Integer);
+    procedure CheckBounds(IncomingSize: Integer);
 
     procedure Write(const A; Size: Integer); overload;
     procedure Write<T>(A: T); overload;
@@ -35,22 +36,36 @@ implementation
 
 { TBuffer }
 
+procedure TBuffer.CheckBounds(IncomingSize: Integer);
+begin
+  if FOffset + IncomingSize > FSize then
+  begin
+    if FAutoExtention then
+    begin
+      Inc(FSize, IncomingSize + BUF_REALLOCSIZE);
+      ReallocMem(FData, FSize);
+    end
+    else
+      raise Exception.Create('TBuffer: Overflowed.');
+  end;
+end;
+
 constructor TBuffer.Create(Size: Integer);
 begin
   if Size = 0 then
   begin
     GetMem(FData, BUF_MINSIZE);
     FSize := BUF_MINSIZE;
-    FOffset := 0;
     FAutoExtention := True;
   end
   else
   begin
-    GetMem(FData, BUF_MINSIZE);
+    GetMem(FData, Size);
     FSize := Size;
-    FOffset := 0;
     FAutoExtention := False;
   end;
+
+  FOffset := 0;
 end;
 
 destructor TBuffer.Destroy;
@@ -85,38 +100,34 @@ end;
 procedure TBuffer.Write<T>(A: T);
 var
   Len: Integer;
+  PValue: Pointer;
 begin
+  PValue := PPointer(@A)^;
+
   if IsManagedType(A) then // interface, string or dynamic array
   begin
-    Len := PInteger(Integer(PPointer(@A)^) - SizeOf(Integer))^;
-
-    if FOffset + Len > FSize then
-    begin
-      if FAutoExtention then
-      begin
-        Inc(FSize, Len + BUF_REALLOCSIZE);
-        ReallocMem(FData, FSize);
-      end
-      else
-        raise Exception.Create('TBuffer: Overflowed.');
-    end;
-
-    Write(PPointer(@A)^^, Len);
+    Len := PInteger(Integer(PValue) - SizeOf(Integer))^;
+    CheckBounds(Len);
+    Write(A, Len);
+  end
+  else
+  if TypeInfo(T) = TypeInfo(PAnsiChar) then
+  begin
+    Len := System.AnsiStrings.StrLen(PAnsiChar(PValue));
+    CheckBounds(Len);
+    Write(A, Len);
+  end
+  else
+  if TypeInfo(T) = TypeInfo(PWideChar) then
+  begin
+    Len := StrLen(PWideChar(PValue));
+    CheckBounds(Len);
+    Write(A, Len);
   end
   else
   begin
-    if FOffset + SizeOf(A) > FSize then
-    begin
-      if FAutoExtention then
-      begin
-        Inc(FSize, SizeOf(A) + BUF_REALLOCSIZE);
-        ReallocMem(FData, FSize);
-      end
-      else
-        raise Exception.Create('TBuffer: Overflowed.');
-    end;
-
-    Write(A, SizeOf(T));
+    CheckBounds(SizeOf(A));
+    Write(A, SizeOf(A));
   end;
 end;
 
