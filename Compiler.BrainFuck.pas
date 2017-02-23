@@ -50,6 +50,8 @@ type
     // Maybe I should use contructor?
     procedure Init;
 
+    procedure LoadFromFile(FileName: string);
+
     // Read source code and create binary data on it's basis.
     procedure CompileCode;
     procedure ExecuteCode;
@@ -135,75 +137,85 @@ end;
 
 procedure TBrainFuckCompiler.Init;
 var
-  Param, Value: string;
-  Line: string;
-  I, J, L: Integer;
-  F: TextFile;
+  Value, Param: string;
+  I, L: Integer;
 begin
-  if ParamCount > 1 then
+  if FindCmdLineSwitch('F', Value) then
+    LoadFromFile(Value);
+
+  if FindCmdLineSwitch('O') then
+    FOpt := True;
+
+  if FindCmdLineSwitch('C', Value) then
   begin
-    for I := 1 to ParamCount do
-    begin
-      Param := LowerCase(ParamStr(I));
-      Value := LowerCase(ParamStr(Succ(I)));
+    FCells := StrToIntDef(Value, CELLS_DEF);
 
-      if (Param = '-file') or (Param = '-f') then
-      begin
-        FSrcName := ChangeFileExt(Value, '');
-
-        if IsRelativePath(Value) then
-          Value := Format('%s\%s', [ExtractFileDir(ParamStr(0)), Value]);
-
-        AssignFile(F, Value);
-
-        {$I-}
-        Reset(F);
-        if IOResult <> 0 then
-          RaiseLastOSError;
-        {$I+}
-
-        FSrc := '';
-
-        while not Eof(F) do
-        begin
-          ReadLn(F, Line);
-
-          J := Pos('#', Line);
-          if J <> 0 then
-            Line := Copy(Line, 1, J - 1);
-
-          FSrc := FSrc + Line;
-        end;
-
-        CloseFile(F);
-      end;
-
-      if Param = '-o' then
-        FOpt := True;
-
-      if (Param = '-cells') or (Param = '-c') then
-      begin
-        if (not TryStrToInt(Value, L)) or (L < CELLS_MIN) then
-          FCells := CELLS_DEF
-        else
-          FCells := L;
-      end;
-
-      if (Param = '-begin') or (Param = '-b') then
-      begin
-        if Value = 'center' then
-          FCellStart := FCells div 2
-        else
-        if Value = 'left' then
-          FCellStart := 0
-        else
-        if Value = 'right' then
-          FCellStart := FCells
-        else
-          FCellStart := StrToIntDef(Value, 0);
-      end;
-    end;
+    if FCells < CELLS_MIN then
+      FCells := CELLS_DEF;
   end;
+
+  if FindCmdLineSwitch('B', Value) then
+  begin
+    if StrIComp(PChar(Value), 'CENTER') = 0 then
+      FCellStart := FCells div 2
+    else
+    if StrIComp(PChar(Value), 'LEFT') = 0 then
+      FCellStart := 0
+    else
+    if StrIComp(PChar(Value), 'RIGHT') = 0 then
+      FCellStart := FCells
+    else
+      FCellStart := StrToIntDef(Value, 0);
+  end;
+
+  if FindCmdLineSwitch('T', Value) then
+  begin
+    if StrIComp(PChar(Value), 'WIN32') = 0 then
+      FTarget := tWin32
+    else
+    if StrIComp(PChar(Value), 'WIN64') = 0 then
+      FTarget := tWin64
+    else
+    if StrIComp(PChar(Value), 'LINUX') = 0 then
+      FTarget := tLinux
+    else
+      raise Exception.Create('TBrainFuckCompiler.Init: Unknown target.');
+  end;
+end;
+
+procedure TBrainFuckCompiler.LoadFromFile(FileName: string);
+var
+  Line: string;
+  F: TextFile;
+  J: Integer;
+begin
+  FSrcName := ChangeFileExt(FileName, '');
+
+  if IsRelativePath(FileName) then
+    FileName := Format('%s\%s', [ExtractFileDir(ParamStr(0)), FileName]);
+
+  AssignFile(F, FileName);
+
+  {$I-}
+  Reset(F);
+  if IOResult <> 0 then
+    RaiseLastOSError;
+  {$I+}
+
+  FSrc := '';
+
+  while not Eof(F) do
+  begin
+    ReadLn(F, Line);
+
+    J := Pos('#', Line);
+    if J <> 0 then
+      Line := Copy(Line, 1, J - 1);
+
+    FSrc := FSrc + Line;
+  end;
+
+  CloseFile(F);
 end;
 
 function Relative(FAddr, SAddr: Pointer): Pointer; inline;

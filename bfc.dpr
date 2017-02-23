@@ -47,14 +47,14 @@ begin
   WriteLn;
 
   if ParamCount = 0 then
-  begin;
+  begin
     WriteLn('Syntax: bfc [options]');
     WriteLn;
-    PrintSwitchValue('-file <str>', 'Source file');
-    PrintSwitchValue('-target <str>', 'Target platform (win32, win64, linux)');
-    PrintSwitchValue('-cells <int>', 'Elements count');
-    PrintSwitchValue('-begin <int>', 'Start cell position');
-    PrintSwitchValue('-o', 'Optimization');
+    PrintSwitchValue('-F <str>', 'Source file.');
+    PrintSwitchValue('-T <str>', 'Target platform (win32, win64, linux).');
+    PrintSwitchValue('-C <int>', 'Elements count.');
+    PrintSwitchValue('-B <int>', 'Start cell position.');
+    PrintSwitchValue('-O', 'Optimization.');
     ReadLn;
     Exit;
   end

@@ -6,8 +6,6 @@ uses
   &Assembler.Global, System.SysUtils, Buffer;
 
 type
-
-
   TJumpType = (jtJo, jtJno,
                jtJb, jtJnb,
                jtJz, jtJnz,
@@ -54,7 +52,7 @@ type
     procedure WritePrefix(Prefix: TCmdPrefix);
     {$ENDREGION}
 
-    {$REGION 'Define Functions}
+    {$REGION 'Define Functions'}
     procedure DB(Value: Byte); overload;
     procedure DB(const Values: array of Byte); overload;
 
