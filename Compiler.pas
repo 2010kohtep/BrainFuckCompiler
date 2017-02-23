@@ -6,6 +6,8 @@ uses
   &Assembler.Global, System.SysUtils, Buffer;
 
 type
+
+
   TJumpType = (jtJo, jtJno,
                jtJb, jtJnb,
                jtJz, jtJnz,
@@ -34,13 +36,9 @@ type
     FBuffer: TBuffer;
 
     FTarget: TTarget;
-
-    FSwapOperand: Boolean;
-    FForceMemory: Boolean;
   public
     {$REGION 'Properties'}
     property Target: TTarget read FTarget default tWin32;
-    property ToMemory: Boolean read FForceMemory write FForceMemory default False;
     property IP: Pointer read InstructionPtr;
     {$ENDREGION}
 
@@ -54,6 +52,20 @@ type
     procedure WriteSIB(Scale: TNumberScale; Base, Index: TRegIndex);
     procedure WriteBase(Dest, Base, Index: TRegIndex; Scale: TNumberScale; Offset: Integer); stdcall;
     procedure WritePrefix(Prefix: TCmdPrefix);
+    {$ENDREGION}
+
+    {$REGION 'Define Functions}
+    procedure DB(Value: Byte); overload;
+    procedure DB(const Values: array of Byte); overload;
+
+    procedure DW(Value: SmallInt); overload;
+    procedure DW(const Values: array of SmallInt); overload;
+
+    procedure DD(Value: Integer); overload;
+    procedure DD(const Values: array of Integer); overload;
+
+    procedure DQ(Value: Int64); overload;
+    procedure DQ(const Values: array of Int64); overload;
     {$ENDREGION}
 
     procedure WriteAnd(Dest, Base, Index: TRegIndex; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
@@ -291,15 +303,8 @@ end;
 
 procedure TCompiler.WriteModRM(AddrMod: TAddressingType;
   Dest, Source: TRegIndex);
-var
-  B: Byte;
 begin
-  if FForceMemory then
-    B := Byte(TAddressingType.atIndirAddr)
-  else
-    B := Byte(AddrMod);
-
-  FBuffer.Write<Byte>(B shl 6 or Byte(Source) shl 3 or Byte(Dest));
+  FBuffer.Write<Byte>(Byte(AddrMod) shl 6 or Byte(Source) shl 3 or Byte(Dest));
 end;
 
 procedure TCompiler.WriteModRM(AddrMod: TAddressingType;
@@ -405,7 +410,59 @@ end;
 
 procedure TCompiler.Create;
 begin
-  FSwapOperand := False;
+
+end;
+
+procedure TCompiler.DB(const Values: array of Byte);
+var
+  I: Integer;
+begin
+  for I := 0 to Length(Values) - 1 do
+    FBuffer.Write<Byte>(Values[I]);
+end;
+
+procedure TCompiler.DB(Value: Byte);
+begin
+  FBuffer.Write<Byte>(Value);
+end;
+
+procedure TCompiler.DD(const Values: array of Integer);
+var
+  I: Integer;
+begin
+  for I := 0 to Length(Values) - 1 do
+    FBuffer.Write<Integer>(Values[I]);
+end;
+
+procedure TCompiler.DD(Value: Integer);
+begin
+  FBuffer.Write<Integer>(Value);
+end;
+
+procedure TCompiler.DQ(const Values: array of Int64);
+var
+  I: Integer;
+begin
+  for I := 0 to Length(Values) - 1 do
+    FBuffer.Write<Int64>(Values[I]);
+end;
+
+procedure TCompiler.DQ(Value: Int64);
+begin
+  FBuffer.Write<Int64>(Value);
+end;
+
+procedure TCompiler.DW(const Values: array of SmallInt);
+var
+  I: Integer;
+begin
+  for I := 0 to Length(Values) - 1 do
+    FBuffer.Write<SmallInt>(Values[I]);
+end;
+
+procedure TCompiler.DW(Value: SmallInt);
+begin
+  FBuffer.Write<SmallInt>(Value);
 end;
 
 function TCompiler.InstructionPtr: Pointer;

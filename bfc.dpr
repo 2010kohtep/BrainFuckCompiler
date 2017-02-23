@@ -30,8 +30,8 @@ uses
 
   Compiler,
   Compiler.BrainFuck,
-  Compiler.TicksMeter,
 
+  TicksMeter,
   Utils,
   Stack,
   Buffer;
@@ -40,8 +40,6 @@ var
   Compiler: TBrainFuckCompiler;
 
 procedure Init;
-label
-  A;
 begin
   Compiler.Create;
 
@@ -50,7 +48,7 @@ begin
 
   if ParamCount = 0 then
   begin;
-A:  WriteLn('Syntax: bfc [options]');
+    WriteLn('Syntax: bfc [options]');
     WriteLn;
     PrintSwitchValue('-file <str>', 'Source file');
     PrintSwitchValue('-target <str>', 'Target platform (win32, win64, linux)');
@@ -65,7 +63,10 @@ A:  WriteLn('Syntax: bfc [options]');
     Compiler.Init;
 
     if Compiler.SourceCode = '' then
-      goto A;
+    begin
+      WriteLn('Cannot continue, source code is not loaded.');
+      Exit;
+    end;
   end;
 
   Compiler.CompileCode;

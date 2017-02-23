@@ -28,6 +28,9 @@ implementation
 
 procedure TStack.Create(Buffer: Pointer; Size: Integer);
 begin
+  if (Buffer = nil) or (Size <= 0) then
+    raise Exception.Create('TStack.Create: Invalid arguments.');
+
   FStack := Buffer;
   FSize := Size;
   FLength := 0;
@@ -54,7 +57,7 @@ var
   Value: Integer;
 begin
   if SizeOf(A) > 4 then
-    raise Exception.Create('TStack.Push: Data with size of more than 4 bytes is not supported.')
+    raise Exception.Create('TStack.Push: Data with size more than 4 bytes is not supported.')
   else
   begin
     Value := PInteger(@A)^;

@@ -3,7 +3,7 @@ unit Compiler.BrainFuck;
 interface
 
 uses
-  System.SysUtils, &Assembler.Global, Winapi.Windows, Compiler, Compiler.TicksMeter, Stack;
+  System.SysUtils, Compiler, &Assembler.Global, Winapi.Windows, TicksMeter, Stack;
 
 const
   msvcrt = 'msvcrt.dll';
@@ -240,9 +240,10 @@ begin
 
   if not FOpt then
   begin
-    C := P^;
-
     while P^ <> #0 do
+    begin
+      C := P^;
+
       case C of
         '>': WriteInc(FCellsReg);
         '<': WriteDec(FCellsReg);
@@ -254,7 +255,8 @@ begin
         ']': RaiseException('"No optimization" mode does not support loops.');
       end;
 
-    Inc(P);
+      Inc(P);
+    end;
   end
   else
   begin
@@ -391,7 +393,7 @@ end;
 
 procedure TBrainFuckCompiler.RaiseException(const Text: string);
 begin
-  inherited RaiseException('[Fatal Error] %s(%d): %s', [FSrcName, FSrcPos, Text]);
+  inherited RaiseException('[Fatal Error] %s(%d): %s', [FSrcName, Succ(FSrcPos), Text]);
 end;
 
 procedure TBrainFuckCompiler.RaiseException(const Fmt: string;
@@ -400,7 +402,7 @@ var
   Text: string;
 begin
   Text := Format(Fmt, Args);
-  Text := Format('[Fatal Error] %s(%d): %s', [FSrcName, FSrcPos, Text]);
+  Text := Format('[Fatal Error] %s(%d): %s', [FSrcName, Succ(FSrcPos), Text]);
   inherited RaiseException(Text);
 end;
 
