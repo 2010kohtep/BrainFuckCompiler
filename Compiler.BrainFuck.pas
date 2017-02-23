@@ -282,6 +282,7 @@ begin
       if CharInSet(C, ['>', '<', '+', '-']) then
       begin
         CmdCount := 0;
+
         repeat
           Inc(P);
 

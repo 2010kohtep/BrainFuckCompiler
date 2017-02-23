@@ -4,23 +4,19 @@ program bfc;
 
 {$APPTYPE CONSOLE}
 
-{$REGION 'Minimise Size'}
+(* WEAKLINKRTTI:
+     Default - OFF
+     It affects only the linking - methods are not included in the binary code,
+     that's why RTTI can not find and include methods in realtime. *)
+{$WEAKLINKRTTI ON}
 
-  (* WEAKLINKRTTI:
-       Default - OFF
-       It affects only the linking - methods are not included in the binary code,
-       that's why RTTI can not find and include methods in realtime. *)
-  {$WEAKLINKRTTI ON}
+(*  Controls the amount of extended RTTI information, which generated
+    for classes and records - it disables all RTTI options and disables creation
+    of extended RTTI information. *)
+{$RTTI EXPLICIT METHODS([]) PROPERTIES([]) FIELDS([])}
 
-  (*  Controls the amount of extended RTTI information, which generated
-      for classes and records - it disables all RTTI options and disables creation
-      of extended RTTI information. *)
-  {$RTTI EXPLICIT METHODS([]) PROPERTIES([]) FIELDS([])}
-
-  (* Remove .reloc section, which is not needed for executable files. *)
-  {$SETPEFLAGS 1}
-
-{$ENDREGION}
+(* Remove .reloc section, which is not needed for executable files. *)
+{$SETPEFLAGS 1}
 
 uses
   Winapi.Windows,
