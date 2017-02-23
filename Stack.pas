@@ -2,11 +2,14 @@ unit Stack;
 
 interface
 
+uses
+  System.SysUtils;
+
 type
   TIntegers = array of Integer;
 
   TStack = object
-  protected
+  strict protected
     FStack: Pointer;
     FSize: Integer;
     FLength: Integer;
@@ -15,8 +18,7 @@ type
 
     procedure Create(Buffer: Pointer; Size: Integer);
 
-    procedure Push(Value: Integer); overload;
-    procedure Push(Value: Pointer); overload;
+    procedure Push<T>(A: T); overload;
     function Pop: Integer;
 
     function Get(I: Integer): Integer;
@@ -47,24 +49,35 @@ begin
     Result := -1;
 end;
 
-procedure TStack.Push(Value: Pointer);
+procedure TStack.Push<T>(A: T);
+var
+  Value: Integer;
 begin
-  Push(Integer(Value));
-end;
-
-procedure TStack.Push(Value: Integer);
-begin
-  if FStack <> nil then
+  if SizeOf(A) > 4 then
+    raise Exception.Create('TStack.Push: Data with size of more than 4 bytes is not supported.')
+  else
   begin
-    if FLength = FSize div SizeOf(Integer) then
+    Value := PInteger(@A)^;
+
+    case SizeOf(A) of
+      4: ;
+      3: Value := Value and $FFFFFF;
+      2: Value := Value and $FFFF;
+      1: Value := Value and $FF;
+    end;
+
+    if FStack <> nil then
     begin
-      Move(TIntegers(FStack)[1], TIntegers(FStack)[0], FLength * SizeOf(Integer) - SizeOf(Integer));
-      TIntegers(FStack)[FLength - 1] := Value;
-    end
-    else
-    begin
-      TIntegers(FStack)[FLength] := Value;
-      Inc(FLength);
+      if FLength = FSize div SizeOf(Integer) then
+      begin
+        Move(TIntegers(FStack)[1], TIntegers(FStack)[0], FLength * SizeOf(Integer) - SizeOf(Integer));
+        TIntegers(FStack)[FLength - 1] := Value;
+      end
+      else
+      begin
+        TIntegers(FStack)[FLength] := Value;
+        Inc(FLength);
+      end;
     end;
   end;
 end;

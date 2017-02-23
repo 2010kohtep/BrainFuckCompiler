@@ -189,7 +189,7 @@ begin
   if Here = nil then
     I := 0
   else
-    I := Cardinal(Here) - Cardinal(@TBytes(FBuffer.Data)[FBuffer.Position]);
+    I := Integer(Here) - Integer(@TBytes(FBuffer.Data)[FBuffer.Position]);
 
   if Jump = jtJmp then
   begin
@@ -201,7 +201,7 @@ begin
     else
     begin
       FBuffer.Write<Byte>($E9);
-      FBuffer.Write<Cardinal>(I - 5);
+      FBuffer.Write<Integer>(I - 5);
     end;
   end
   else
@@ -215,7 +215,7 @@ begin
     begin
       FBuffer.Write<Byte>($0F);
       FBuffer.Write<Byte>($80 or Byte(Jump));
-      FBuffer.Write<Cardinal>(I - 6);
+      FBuffer.Write<Integer>(I - 6);
     end;
   end;
 end;
@@ -231,7 +231,7 @@ procedure TCompiler.WriteLea(Dest: TRegIndex; Value: Integer);
 begin
   FBuffer.Write<Byte>($8D);
   WriteModRM(atIndirAddr, TRegIndex(5), Dest);
-  FBuffer.Write<Cardinal>(Value);
+  FBuffer.Write<Integer>(Value);
 end;
 
 procedure TCompiler.WriteLea(Dest, Source: TRegIndex; Offset: Integer);
@@ -244,12 +244,12 @@ begin
       if not IsRel8(Offset) then
       begin
         WriteModRM(atBaseAddr32B, Source, Dest);
-        FBuffer.Write<Cardinal>(Offset);
+        FBuffer.Write<Integer>(Offset);
       end
       else
       begin
         WriteModRM(atBaseAddr8B, Source, Dest);
-        FBuffer.Write<Cardinal>(Offset);
+        FBuffer.Write<Integer>(Offset);
       end;
     end;
 
@@ -259,7 +259,7 @@ begin
       begin
         WriteModRM(atBaseAddr32B, Source, Dest);
         WriteSIB(nsNo, Source, Source);
-        FBuffer.Write<Cardinal>(Offset);
+        FBuffer.Write<Integer>(Offset);
       end
       else
       begin
@@ -282,7 +282,7 @@ begin
         else
         begin
           WriteModRM(atBaseAddr32B, Source, Dest);
-          FBuffer.Write<Cardinal>(Offset);
+          FBuffer.Write<Integer>(Offset);
         end;
       end;
     end;
@@ -311,7 +311,7 @@ end;
 procedure TCompiler.WriteMov(Dest: TRegIndex; Value: Integer);
 begin
   FBuffer.Write<Byte>($B8 or Byte(Dest));
-  FBuffer.Write<Cardinal>(Value);
+  FBuffer.Write<Integer>(Value);
 end;
 
 procedure TCompiler.WriteMov(Dest, Base, Index: TRegIndex; Scale: TNumberScale;
@@ -447,7 +447,7 @@ begin
       WriteModRM(atRegisters, Dest, TRegIndex(0));
     end;
 
-    FBuffer.Write<Cardinal>(Value);
+    FBuffer.Write<Integer>(Value);
   end
   else
   begin
@@ -537,7 +537,12 @@ begin
     if IsRel8(Offset) then
     begin
       if (Scale = nsNo) and (Index = Base) then
-        WriteModRM(atBaseAddr8B, Base, Dest)
+      begin
+        WriteModRM(atBaseAddr8B, Base, Dest);
+
+        if Index = rEsp then
+          WriteSIB(Scale, Index, Index);
+      end
       else
       begin
         WriteModRM(atBaseAddr8B, TRegIndex(4), Dest);
@@ -556,7 +561,7 @@ begin
         WriteSIB(Scale, Base, Index);
       end;
 
-      FBuffer.Write<Cardinal>(Offset);
+      FBuffer.Write<Integer>(Offset);
     end;
   end
   else
@@ -618,12 +623,12 @@ procedure TCompiler.WriteCall(Addr: Pointer);
 
   function Relative(Func, Addr: Pointer): Pointer; inline;
   begin
-    Result := Pointer(Cardinal(Func) - Cardinal(Addr) - 4);
+    Result := Pointer(Integer(Func) - Integer(Addr) - 4);
   end;
 
 begin
   FBuffer.Write<Byte>($E8);
-  FBuffer.Write<Cardinal>(Cardinal(Relative(Addr, @TBytes(FBuffer.Data)[FBuffer.Position])));
+  FBuffer.Write<Integer>(Integer(Relative(Addr, @TBytes(FBuffer.Data)[FBuffer.Position])));
 end;
 
 procedure TCompiler.WriteDec(Reg: TRegIndex);
@@ -723,7 +728,7 @@ begin
       WriteModRM(atRegisters, Dest, TRegIndex(5));
     end;
 
-    FBuffer.Write<Cardinal>(Value);
+    FBuffer.Write<Integer>(Value);
   end
   else
   begin
@@ -759,13 +764,13 @@ begin
   if Dest = rEax then
   begin
     FBuffer.Write<Byte>($A9);
-    FBuffer.Write<Cardinal>(Value);
+    FBuffer.Write<Integer>(Value);
   end
   else
   begin
     FBuffer.Write<Byte>($F7);
     WriteModRM(atRegisters, Dest, TRegIndex(0));
-    FBuffer.Write<Cardinal>(Value);
+    FBuffer.Write<Integer>(Value);
   end;
 end;
 
@@ -813,7 +818,7 @@ begin
   begin
     FBuffer.Write<Byte>($81);
     WriteModRM(atRegisters, Dest, TRegIndex(6));
-    FBuffer.Write<Cardinal>(Value);
+    FBuffer.Write<Integer>(Value);
   end;
 end;
 
@@ -832,7 +837,7 @@ procedure TCompiler.WritePop(Addr: Pointer);
 begin
   FBuffer.Write<Byte>($8F);
   WriteModRM(atIndirAddr, TRegIndex(5), TRegIndex(0));
-  FBuffer.Write<Cardinal>(Cardinal(Addr));
+  FBuffer.Write<Pointer>(Addr);
 end;
 
 procedure TCompiler.WritePrefix(Prefix: TCmdPrefix);
@@ -846,7 +851,7 @@ begin
   begin
     FBuffer.Write<Byte>($FF);
     FBuffer.Write<Byte>($35);
-    FBuffer.Write<Cardinal>(Value);
+    FBuffer.Write<Integer>(Value);
   end
   else
   begin
@@ -858,7 +863,7 @@ begin
     else
     begin
       FBuffer.Write<Byte>($68);
-      FBuffer.Write<Cardinal>(Value);
+      FBuffer.Write<Integer>(Value);
     end;
   end;
 end;

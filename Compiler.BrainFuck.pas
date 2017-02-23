@@ -51,7 +51,7 @@ type
     procedure Init;
 
     // Read source code and create binary data on it's basis.
-    procedure CompileCode(const Code: string);
+    procedure CompileCode;
     procedure ExecuteCode;
 
     function CheckLastCode(const Commands: array of Char): Boolean;
@@ -211,7 +211,7 @@ begin
   Result := Pointer(Integer(FAddr) - Integer(SAddr) - 5);
 end;
 
-procedure TBrainFuckCompiler.CompileCode(const Code: string);
+procedure TBrainFuckCompiler.CompileCode;
 var
   JumpAddr, P2: Pointer;
   P: PChar;
@@ -231,20 +231,18 @@ begin
   // Create function prologue (stack, registers, ...).
   WritePrologue;
   // Write pointer to "Code" first symbol for easier way to work with it
-  P := PChar(Code);
+  P := PChar(FSrc);
   // Create a stack array of addresses. Needs to work with cycles.
   ArrStack.Create(@ArrData[0], SizeOf(ArrData));
 
   SetLength(Cells, FCells);
   CellsPtr := FCellStart;
 
-  while P^ <> #0 do
+  if not FOpt then
   begin
-    {$REGION 'No Optimization'}
-    if not FOpt then
-    begin
-      C := P^;
+    C := P^;
 
+    while P^ <> #0 do
       case C of
         '>': WriteInc(FCellsReg);
         '<': WriteDec(FCellsReg);
@@ -253,14 +251,14 @@ begin
         '.': WriteIn;
         ',': WriteOut;
         '[': RaiseException('"No optimization" mode does not support loops.');
-        ']':
-          if ArrStack.Length = 0 then
-            RaiseException('Loop is not initialized by "%s" command.', ['[']);
-        '@': Break;
+        ']': RaiseException('"No optimization" mode does not support loops.');
       end;
-    end
-    else
-    {$ENDREGION}
+
+    Inc(P);
+  end
+  else
+  begin
+    while P^ <> #0 do
     begin
       Inc(FSrcPos);
 
@@ -283,7 +281,7 @@ begin
         case C of
           '>':
           begin
-            FLastCmds.Push(Integer(C));
+            FLastCmds.Push<Char>(C);
             if CmdCount > 1 then
             begin
               WriteAdd(FCellsReg, CmdCount);
@@ -333,7 +331,7 @@ begin
           end;
         end;
 
-        FLastCmds.Push(Integer(C));
+        FLastCmds.Push<Char>(C);
         Continue;
       end;
 
@@ -349,7 +347,7 @@ begin
           FBuffer.Write<Byte>($80 or (4));
           FBuffer.Write<Cardinal>(0);
 
-          ArrStack.Push(IP);
+          ArrStack.Push<Pointer>(IP);
         end;
 
         ']':
@@ -360,26 +358,26 @@ begin
           P2 := Pointer(ArrStack.Pop);
 
           WriteCmpMem(FCellsReg, 0);
-          WriteJump(jtJnz, Pointer(Integer(P2)));
+          WriteJump(jtJnz, P2);
 
           JumpAddr := Relative(IP, Pointer(Integer(P2) - 5));
 
           PPointer(Integer(P2) - 4)^ := JumpAddr;
         end;
       end;
+
+      FLastCmds.Push<Char>(C);
+
+      if CheckLastCode(['[', '-', ']']) then
+      begin
+        FBuffer.Seek(-16); // replace this with something more appropriate
+
+        if Byte(Cells[CellsPtr] + 1) <> 0 then
+          WriteMovMem(FCellsReg, 0);
+      end;
+
+      Inc(P);
     end;
-
-    FLastCmds.Push(Integer(C));
-
-    if CheckLastCode(['[', '-', ']']) then
-    begin
-      FBuffer.Seek(-16); // replace this with something more appropriate
-
-      if Byte(Cells[CellsPtr] + 1) <> 0 then
-        WriteMovMem(FCellsReg, 0);
-    end;
-
-    Inc(P);
   end;
 
   Ticks.Stop;

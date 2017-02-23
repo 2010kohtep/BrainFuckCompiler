@@ -68,7 +68,7 @@ A:  WriteLn('Syntax: bfc [options]');
       goto A;
   end;
 
-  Compiler.CompileCode(Compiler.SourceCode);
+  Compiler.CompileCode;
   Compiler.ExecuteCode;
 end;
 
