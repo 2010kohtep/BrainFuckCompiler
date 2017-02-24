@@ -13,11 +13,11 @@ type
   TBuffer = object
   protected
     FAutoExtention: Boolean;
-    FData: Pointer;
+    FData: PByte;
     FSize: Integer;
     FOffset: Integer;
   public
-    property Data: Pointer read FData;
+    property Data: PByte read FData;
     property Position: Integer read FOffset;
 
     constructor Create(Size: Integer);

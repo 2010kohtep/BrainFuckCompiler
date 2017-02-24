@@ -1,16 +1,16 @@
 unit Stack;
 
+{$POINTERMATH ON}
+
 interface
 
 uses
   System.SysUtils;
 
 type
-  TIntegers = array of Integer;
-
   TStack = object
   strict protected
-    FStack: Pointer;
+    FStack: PInteger;
     FSize: Integer;
     FLength: Integer;
   public
@@ -39,7 +39,7 @@ end;
 
 function TStack.Get(I: Integer): Integer;
 begin
-  Result := TIntegers(FStack)[I];
+  Result := FStack[I];
 end;
 
 function TStack.GetLast: Integer;
@@ -55,7 +55,7 @@ begin
   if (FStack <> nil) and (FLength > 0) then
   begin
     Dec(FLength);
-    Result := TIntegers(FStack)[FLength];
+    Result := PInteger(FStack)[FLength];
   end
   else
     Result := -1;
@@ -82,12 +82,12 @@ begin
     begin
       if FLength = FSize div SizeOf(Integer) then
       begin
-        Move(TIntegers(FStack)[1], TIntegers(FStack)[0], FLength * SizeOf(Integer) - SizeOf(Integer));
-        TIntegers(FStack)[FLength - 1] := Value;
+        Move(PInteger(FStack)[1], PInteger(FStack)[0], FLength * SizeOf(Integer) - SizeOf(Integer));
+        PInteger(FStack)[FLength - 1] := Value;
       end
       else
       begin
-        TIntegers(FStack)[FLength] := Value;
+        PInteger(FStack)[FLength] := Value;
         Inc(FLength);
       end;
     end;

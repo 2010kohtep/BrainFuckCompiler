@@ -7,7 +7,7 @@ const
 
 type
   TNumberScale = (nsNo, nsBy2, nsBy4, nsBy8);
-  TStrSize = (msByte, msWord, msDWord);
+  TAddrSize = (msByte, msWord, msDWord);
   TCmdPrefix = (cpRegSize   = $66,  // Overrides operand size (eax -> ax)
                 cpAddrSize  = $67,  // Overrides address size
                 cpWait      = $9B,  // wait
@@ -16,6 +16,9 @@ type
                 cpRepNZ     = $F3); // repne
 
   TRegIndex = (rEax, rEcx, rEdx, rEbx, rEsp, rEbp, rEsi, rEdi);
+
+  TReg64Index = (rRax, rRcx, rRdx, rRbx, rRsp, rRbp, rRsi, rRdi,
+                 r8,   r9,   r10,  r11,  r12,  r13,  r14,  r15);
 
   TAddressingType = (atIndirAddr,   // 00b
                      atBaseAddr8B,  // 01b
@@ -49,6 +52,25 @@ type
       1: (SReg: TRegIndex);
       2: (Memory: TRMInfo); // Integer = 101b
     end;
+
+  TJumpType = (jtJo, jtJno,
+               jtJb, jtJnb,
+               jtJz, jtJnz,
+               jtJa, jtJna,
+               jtJs, jtJns,
+               jtJp, jtJnp,
+               jtJl, jtJnl,
+               jtJg, jtJng,
+               jtJmp);
+
+  TCondition = (cOverflow, cNotOverflow,
+                cBelow, cNotBelow,
+                cZero, cNotZero,
+                cAbove, cNotAbove,
+                cSign, cNotSign,
+                cParity, cNotParity,
+                cLess, cNotLess,
+                cNotGreater, cGreater);
 
 implementation
 

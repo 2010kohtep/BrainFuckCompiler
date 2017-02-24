@@ -15,7 +15,7 @@ function getchar: AnsiChar; cdecl; external msvcrt;
 
 const
   CELLS_MIN = 64;
-  CELLS_DEF = 16384;
+  CELLS_DEF = 30000;
 
 type
   TBrainFuckCompiler = object(TCompiler)
@@ -103,7 +103,7 @@ begin
   FOutReg := rEdi; // Register that consists "," function
 
   FSrcPos := 0; // Command number that processes by the interpreter
-  FCellStart := 0;
+  FCellStart := FCells div 2;
 
   FillChar(FLastCmdsData[0], SizeOf(FLastCmdsData), 0);
   FLastCmds.Create(@FLastCmdsData[0], SizeOf(FLastCmdsData));
@@ -239,14 +239,14 @@ begin
       case C of
         '>': WriteInc(FCellsReg);
         '<': WriteDec(FCellsReg);
-        '+': WriteIncMem(FCellsReg);
-        '-': WriteDecMem(FCellsReg);
+        '+': WriteInc(FCellsReg, msByte);
+        '-': WriteDec(FCellsReg, msByte);
         '.': WriteIn;
         ',': WriteOut;
         '[':
         begin
           WriteCmpMem(FCellsReg, 0);
-          WriteJump(jtJz, Pointer($AAAAAAAA));
+          WriteJump(jtJz, Pointer($CCCCCCCC));
           LoopStack.Push<Pointer>(IP);
         end;
         ']':
@@ -349,7 +349,7 @@ begin
           end
           else
           begin
-            WriteIncMem(FCellsReg);
+            WriteInc(FCellsReg, msByte);
             Inc(Cells[CellsPtr]);
           end;
 
@@ -361,7 +361,7 @@ begin
           end
           else
           begin
-            WriteDecMem(FCellsReg);
+            WriteDec(FCellsReg, msByte);
             Dec(Cells[CellsPtr]);
           end;
         end;
@@ -395,7 +395,7 @@ begin
             WriteCmpMem(FCellsReg, 0);
 
           // Create dummy jump which will be contain skip loop address
-          WriteJump(jtJz, Pointer($AAAAAAAA));
+          WriteJump(jtJz, Pointer($CCCCCCCC));
 
           LoopStack.Push<Pointer>(IP);
         end;
@@ -423,6 +423,8 @@ begin
 
   Ticks.Stop;
 
+  WriteLn('Target: ', Target.ToString);
+  WriteLn('Optimization: ', FOpt);
   WriteLn('Compiled successfully. Code size: ', FBuffer.Position, ' bytes.');
   WriteLn(Ticks.ToString);
   WriteLn;

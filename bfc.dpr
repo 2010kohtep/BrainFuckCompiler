@@ -41,6 +41,11 @@ var
 
 procedure Init;
 begin
+  // To do list:
+
+  // - Fix DB<PChar> stuff
+  // - Cell offset to avoid use add/sub/inc/dec
+
   Compiler.Create;
 
   SetConsoleTitle(PROJNAME);
@@ -56,8 +61,7 @@ begin
     PrintSwitchValue('-T <str>', 'Target platform (win32, win64, linux).');
     PrintSwitchValue('-C <int>', 'Cells count.');
     PrintSwitchValue('-B <int>', 'Start cell position.');
-    PrintSwitchValue('-E', 'Execute code after compilation.');
-    PrintSwitchValue('-O', 'Optimization.');
+    PrintSwitchValue('-O', 'Enable code optimization.');
     Exit;
   end
   else
