@@ -59,6 +59,7 @@ type
 
     procedure DW(Value: SmallInt); overload;
     procedure DW(const Values: array of SmallInt); overload;
+    procedure DW(Value: PWideChar); overload;
 
     procedure DD(Value: Integer); overload;
     procedure DD(const Values: array of Integer); overload;
@@ -449,6 +450,11 @@ var
 begin
   for I := 0 to Length(Values) - 1 do
     FBuffer.Write<Int64>(Values[I]);
+end;
+
+procedure TCompiler.DW(Value: PWideChar);
+begin
+  FBuffer.Write<PWideChar>(Value);
 end;
 
 procedure TCompiler.DQ(Value: Int64);

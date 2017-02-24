@@ -1,6 +1,6 @@
 unit Compiler.BrainFuck;
 
-{$WARN WIDECHAR_REDUCED OFF}
+{$WARN WIDECHAR_REDUCED OFF} // Because CharInSet() is too slow for me
 
 interface
 
@@ -48,6 +48,7 @@ type
     procedure WriteOut;
 
     procedure Create;
+
     // Compiler config initialization via command line parameters
     // Maybe I should use contructor?
     procedure Init;
@@ -58,7 +59,6 @@ type
     procedure CompileCode;
     procedure ExecuteCode;
 
-    function CheckLastCode(const Commands: array of Char): Boolean;
     function CheckCode(const Cmds: string): Boolean;
 
     // Brainfuck Compiled Unit
@@ -81,37 +81,8 @@ begin
 end;
 
 function TBrainFuckCompiler.CheckCode(const Cmds: string): Boolean;
-var
-  P: PChar;
 begin
-  P := PChar(@FSrc[FSrcPos + 1]);
-
-  Result := StrLIComp(P, PChar(@Cmds[1]), Length(Cmds)) = 0;
-  // Result := Copy(FSrc, FSrcPos, Length(Cmds)) = Cmds;
-end;
-
-function TBrainFuckCompiler.CheckLastCode(
-  const Commands: array of Char): Boolean;
-var
-  I, Len: Integer;
-  C: Char;
-begin
-  Len := Length(Commands);
-
-  if FLastCmds.Length >= Len then
-  begin
-    for I := 0 to Len - 1 do
-    begin
-       C := Char(FLastCmds.Get(FLastCmds.Length - Len + I));
-
-       if C <> Commands[I] then
-         Exit(False);
-    end;
-  end
-  else
-    Exit(False);
-
-  Exit(True);
+  Result := StrLIComp(PChar(@FSrc[FSrcPos + 1]), PChar(Cmds), Length(Cmds)) = 0;
 end;
 
 procedure TBrainFuckCompiler.Create;
@@ -142,9 +113,6 @@ procedure TBrainFuckCompiler.ExecuteCode;
 type
   TFuckback = procedure; // callback
 begin
-  if IsDebuggerPresent then
-    asm int 3 end;
-
   TFuckback(FBuffer.Data)();
 end;
 
@@ -242,8 +210,8 @@ var
   C: Char;
   CmdCount: Integer;
 
-  ArrStack: TStack;
-  ArrData: array[0..255] of Integer;
+  LoopStack: TStack;
+  LoopData: array[0..255] of Integer;
 
   Cells: array of Byte;
   CellsPtr: Integer;
@@ -257,7 +225,7 @@ begin
   // Write pointer to "Code" first symbol for easier way to work with it
   P := PChar(FSrc);
   // Create a stack array of addresses. Needs to work with cycles.
-  ArrStack.Create(@ArrData[0], SizeOf(ArrData));
+  LoopStack.Create(@LoopData[0], SizeOf(LoopData));
 
   SetLength(Cells, FCells);
   CellsPtr := FCellStart;
@@ -275,8 +243,25 @@ begin
         '-': WriteDecMem(FCellsReg);
         '.': WriteIn;
         ',': WriteOut;
-        '[': RaiseException('"No optimization" mode does not support loops.');
-        ']': RaiseException('"No optimization" mode does not support loops.');
+        '[':
+        begin
+          WriteCmpMem(FCellsReg, 0);
+          WriteJump(jtJz, Pointer($AAAAAAAA));
+          LoopStack.Push<Pointer>(IP);
+        end;
+        ']':
+        begin
+          if LoopStack.Length = 0 then
+            RaiseException('Loop is not initialized by "%s" command.', ['[']);
+
+          JmpBegin := Pointer(LoopStack.Pop);
+
+          if not (Char(FLastCmds.GetLast) in ['+', '-']) then
+            WriteCmpMem(FCellsReg, 0);
+
+          WriteJump(jtJnz, JmpBegin);
+          PPointer(@PByte(JmpBegin)[-4])^ := Relative(IP, @PByte(JmpBegin)[-5]);
+        end;
       end;
 
       Inc(P);
@@ -291,8 +276,10 @@ begin
         WriteMovMem(FCellsReg, 0);
 
         FLastCmds.Push<Char>('[');
-        FLastCmds.Push<Char>('?');
+        FLastCmds.Push<Char>(P[1]);
         FLastCmds.Push<Char>(']');
+
+        Cells[CellsPtr] := 0;
 
         Inc(P, 3);
         Inc(FSrcPos, 3);
@@ -301,8 +288,16 @@ begin
 
       C := P^;
 
+//      if StrLIComp(P, '//', 2) = 0 then
+//      begin
+//        P2 := StrScan(P, #10);
+//
+//        Inc(FSrcPos, Integer(P2 - P));
+//        P := P2 + 1;
+//      end;
+
       // Commands that can be compressed into a single operand
-      if CharInSet(C, ['>', '<', '+', '-']) then
+      if C in ['>', '<', '+', '-'] then
       begin
         CmdCount := 0;
 
@@ -310,7 +305,7 @@ begin
           Inc(P);
 
           // Skip symbols that do not affect anything
-          while CharInSet(P^, [' ', #9, #10, #13]) do Inc(P);
+          while (P^ in [' ', #9, #10, #13]) do Inc(P);
 
           Inc(CmdCount);
         until (P^ <> C) or (P^ = #0);
@@ -382,27 +377,41 @@ begin
         ',': WriteOut;
         '[':
         begin
+//          if Cells[CellsPtr] = 0 then
+//          begin
+//            P2 := StrScan(P, ']');
+//            if P2 = nil then
+//              RaiseException('Cannot find end loop.');
+//
+//            Inc(FSrcPos, Integer(P2 - P));
+//            P := P2 + 1;
+//
+//            Continue;
+//          end;
+
+          // We don't need to create "cmp" instruction because "add", "sub", "inc"
+          // and "dec" ones are already set ZF before
           if not (Char(FLastCmds.GetLast) in ['+', '-']) then
             WriteCmpMem(FCellsReg, 0);
 
+          // Create dummy jump which will be contain skip loop address
           WriteJump(jtJz, Pointer($AAAAAAAA));
 
-          ArrStack.Push<Pointer>(IP);
+          LoopStack.Push<Pointer>(IP);
         end;
 
         ']':
         begin
-          if ArrStack.Length = 0 then
+          if LoopStack.Length = 0 then
             RaiseException('Loop is not initialized by "%s" command.', ['[']);
 
-          JmpBegin := Pointer(ArrStack.Pop);
+          JmpBegin := Pointer(LoopStack.Pop);
 
           if not (Char(FLastCmds.GetLast) in ['+', '-']) then
             WriteCmpMem(FCellsReg, 0);
 
           WriteJump(jtJnz, JmpBegin);
-
-          PPointer(Integer(JmpBegin) - 4)^ := Relative(IP, Pointer(Integer(JmpBegin) - 5));
+          PPointer(@PByte(JmpBegin)[-4])^ := Relative(IP, @PByte(JmpBegin)[-5]);
         end;
       end;
 
@@ -446,7 +455,7 @@ end;
 
 procedure TBrainFuckCompiler.WriteEpilogue;
 begin
-  WriteAdd(rEsp, FCells {+ FInCount * 4});
+  WriteAdd(rEsp, FCells);
 
   if FOpt then
   begin
@@ -465,12 +474,11 @@ begin
   WritePush(rEax);
 
   if FOpt then
-  begin
-    WriteCall(FInReg);
-    WritePop(rEcx);
-  end
+    WriteCall(FInReg)
   else
     WriteCall(@Print);
+
+  WritePop(rEcx);
 
   Inc(FInCount);
 end;
@@ -527,6 +535,11 @@ end;
 
 procedure TBrainFuckCompiler.WritePrologue;
 begin
+  // If we are under debugger, then we need to create int3 instruction right
+  // before compiled brainfuck code.
+  if IsDebuggerPresent then
+    WriteInt(3);
+
   // Reserve for pointer at cells
   WritePush(FCellsReg);
 

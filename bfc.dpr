@@ -32,6 +32,10 @@ uses
   Stack,
   Buffer;
 
+const
+  PROJNAME = 'Brainfuck Compiler';
+  PROJVER = 'Indev';
+
 var
   Compiler: TBrainFuckCompiler;
 
@@ -39,7 +43,9 @@ procedure Init;
 begin
   Compiler.Create;
 
-  WriteLn('Brainfuck Compiler Version 1.0.0');
+  SetConsoleTitle(PROJNAME);
+  WriteLn(PROJNAME, ' version ', PROJVER);
+  WriteLn('Copyright (c) 2017 Alexander B.');
   WriteLn;
 
   if ParamCount = 0 then
@@ -48,8 +54,9 @@ begin
     WriteLn;
     PrintSwitchValue('-F <str>', 'Source file.');
     PrintSwitchValue('-T <str>', 'Target platform (win32, win64, linux).');
-    PrintSwitchValue('-C <int>', 'Elements count.');
+    PrintSwitchValue('-C <int>', 'Cells count.');
     PrintSwitchValue('-B <int>', 'Start cell position.');
+    PrintSwitchValue('-E', 'Execute code after compilation.');
     PrintSwitchValue('-O', 'Optimization.');
     Exit;
   end
