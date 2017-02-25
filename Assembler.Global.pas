@@ -2,9 +2,6 @@ unit &Assembler.Global;
 
 interface
 
-const
-  REG_COUNT = 8;
-
 type
   TNumberScale = (nsNo, nsBy2, nsBy4, nsBy8);
   TAddrSize = (msByte, msWord, msDWord);
@@ -15,7 +12,7 @@ type
                 cpRep       = $F2,  // rep
                 cpRepNZ     = $F3); // repne
 
-  TRegIndex = (rEax, rEcx, rEdx, rEbx, rEsp, rEbp, rEsi, rEdi);
+  TRegIndex =    (rEax,  rEcx,  rEdx,  rEbx,  rEsp,  rEbp,  rEsi,  rEdi);
 
   TReg64Index = (rRax, rRcx, rRdx, rRbx, rRsp, rRbp, rRsi, rRdi,
                  r8,   r9,   r10,  r11,  r12,  r13,  r14,  r15);
@@ -72,6 +69,10 @@ type
                 cParity, cNotParity,
                 cLess, cNotLess,
                 cNotGreater, cGreater);
+
+const
+  REG_x32_COUNT = SizeOf(TRegIndex);
+  REG_x64_COUNT = SizeOf(TReg64Index);
 
 implementation
 

@@ -56,10 +56,10 @@ begin
   begin
     WriteLn('Syntax: bfc [options]');
     WriteLn;
-    PrintSwitchValue('-F <str>', 'Source file.');
-    PrintSwitchValue('-T <str>', 'Target platform (win32, win64, linux).');
-    PrintSwitchValue('-C <int>', 'Cells count.');
-    PrintSwitchValue('-B <int>', 'Start cell position.');
+    PrintSwitchValue('-F <path>', 'Source file.');
+    PrintSwitchValue('-T <target>', 'Target platform (win32, win64, linux).');
+    PrintSwitchValue('-C <count>', 'Cells count.');
+    PrintSwitchValue('-B <position>', 'Start cell position.');
     PrintSwitchValue('-O', 'Enable code optimization.');
     Exit;
   end

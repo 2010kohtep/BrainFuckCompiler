@@ -271,7 +271,7 @@ begin
     begin
       if CheckCode('[-]') or CheckCode('[+]') then
       begin
-        WriteMovMem(FCellsReg, 0);
+        WriteMov(0, FCellsReg, FCellsReg, msByte);
 
         FLastCmds.Push<Char>('[');
         FLastCmds.Push<Char>(P[1]);
@@ -314,7 +314,6 @@ begin
         case C of
           '>':
           begin
-            FLastCmds.Push<Char>(C);
             if CmdCount > 1 then
             begin
               WriteAdd(FCellsReg, CmdCount);
