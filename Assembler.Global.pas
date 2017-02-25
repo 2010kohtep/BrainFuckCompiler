@@ -27,7 +27,8 @@ type
 
   // SIB – Scale Index Base
   // If you specify the same index and base, one register is going to be used.
-  TSIBInfo = packed record // *atRegAddr doesn't need this
+  // TAddressingType.atRegisters doesn't need SIB byte.
+  TSIBInfo = packed record
     Scale: TNumberScale; // 00b
     Index: TRegIndex; // 000b
     Base: TRegIndex; // 000b

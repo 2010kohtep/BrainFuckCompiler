@@ -41,11 +41,11 @@ type
     {$REGION 'Define Functions'}
     procedure DB(Value: Byte); overload;
     procedure DB(const Values: array of Byte); overload;
-    procedure DB(Value: PAnsiChar); overload;
+    procedure DB(const Value: AnsiString); overload;
 
     procedure DW(Value: SmallInt); overload;
     procedure DW(const Values: array of SmallInt); overload;
-    procedure DW(Value: PWideChar); overload;
+    procedure DW(const Value: WideString); overload;
 
     procedure DD(Value: Integer); overload;
     procedure DD(const Values: array of Integer); overload;
@@ -54,11 +54,11 @@ type
     procedure DQ(const Values: array of Int64); overload;
     {$ENDREGION}
 
-    procedure WriteAnd(Dest, Base, Index: TRegIndex; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
+    procedure WriteAnd(Dest, Base, Index: TRegIndex; RegSize: TAddrSize = msDWord; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteAnd(Dest, Source: TRegIndex); overload;
     procedure WriteAnd(Dest: TRegIndex; Value: Integer); overload;
 
-    procedure WriteMov(Dest, Base, Index: TRegIndex; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
+    procedure WriteMov(Dest, Base, Index: TRegIndex; RegSize: TAddrSize = msDWord; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteMov(Dest, Source: TRegIndex); overload;
     procedure WriteMov(Dest: TRegIndex; Value: Integer); overload;
 
@@ -317,10 +317,19 @@ begin
   FBuffer.Write<Integer>(Value);
 end;
 
-procedure TCompiler.WriteMov(Dest, Base, Index: TRegIndex; Scale: TNumberScale;
-  Offset: Integer);
+procedure TCompiler.WriteMov(Dest, Base, Index: TRegIndex; RegSize: TAddrSize;
+  Scale: TNumberScale; Offset: Integer);
 begin
-  FBuffer.Write<Byte>($8B);
+  if RegSize = msByte then
+    FBuffer.Write<Byte>($8A)
+  else
+  if RegSize = msWord then
+  begin
+    WritePrefix(cpRegSize);
+    FBuffer.Write<Byte>($8B);
+  end
+  else
+    FBuffer.Write<Byte>($8B);
 
   WriteBase(Dest, Base, Index, Scale, Offset);
 end;
@@ -438,9 +447,9 @@ begin
   FBuffer.Write<Byte>(Value);
 end;
 
-procedure TCompiler.DB(Value: PAnsiChar);
+procedure TCompiler.DB(const Value: AnsiString);
 begin
-  FBuffer.Write<PAnsiChar>(Value);
+  FBuffer.Write<AnsiString>(Value);
 end;
 
 procedure TCompiler.DD(const Values: array of Integer);
@@ -464,9 +473,9 @@ begin
     FBuffer.Write<Int64>(Values[I]);
 end;
 
-procedure TCompiler.DW(Value: PWideChar);
+procedure TCompiler.DW(const Value: WideString);
 begin
-  FBuffer.Write<PWideChar>(Value);
+  FBuffer.Write<WideString>(Value);
 end;
 
 procedure TCompiler.DQ(Value: Int64);
@@ -597,10 +606,19 @@ begin
   end;
 end;
 
-procedure TCompiler.WriteAnd(Dest, Base, Index: TRegIndex; Scale: TNumberScale;
-  Offset: Integer);
+procedure TCompiler.WriteAnd(Dest, Base, Index: TRegIndex; RegSize: TAddrSize;
+  Scale: TNumberScale; Offset: Integer);
 begin
-  FBuffer.Write<Byte>($23);
+  if RegSize = msByte then
+    FBuffer.Write<Byte>($22)
+  else
+  if RegSize = msWord then
+  begin
+    WritePrefix(cpRegSize);
+    FBuffer.Write<Byte>($23);
+  end
+  else
+    FBuffer.Write<Byte>($23);
 
   WriteBase(Dest, Base, Index, Scale, Offset);
 end;

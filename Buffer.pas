@@ -108,21 +108,21 @@ begin
   begin
     Len := PInteger(Integer(PValue) - SizeOf(Integer))^;
     CheckBounds(Len);
-    Write(A, Len);
+    Write(PValue^, Len);
   end
   else
   if TypeInfo(T) = TypeInfo(PAnsiChar) then
   begin
     Len := System.AnsiStrings.StrLen(PAnsiChar(PValue));
     CheckBounds(Len);
-    Write(A, Len);
+    Write(PValue^, Len);
   end
   else
   if TypeInfo(T) = TypeInfo(PWideChar) then
   begin
     Len := StrLen(PWideChar(PValue));
     CheckBounds(Len);
-    Write(A, Len);
+    Write(PValue^, Len);
   end
   else
   begin

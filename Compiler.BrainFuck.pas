@@ -41,6 +41,7 @@ type
     property SourceCode: string read FSrc;
 
     procedure WriteMemSet(Reg: TRegIndex; Size: Cardinal; Value: Integer);
+    procedure WriteStackFrame;
 
     procedure WritePrologue; // BrainFuck binary code start (stack and variables initialization)
     procedure WriteEpilogue; // BrainFuck binary code end (data release and exit)
@@ -255,10 +256,7 @@ begin
             RaiseException('Loop is not initialized by "%s" command.', ['[']);
 
           JmpBegin := Pointer(LoopStack.Pop);
-
-          if not (Char(FLastCmds.GetLast) in ['+', '-']) then
-            WriteCmpMem(FCellsReg, 0);
-
+          WriteCmpMem(FCellsReg, 0);
           WriteJump(jtJnz, JmpBegin);
           PPointer(@PByte(JmpBegin)[-4])^ := Relative(IP, @PByte(JmpBegin)[-5]);
         end;
@@ -472,15 +470,16 @@ end;
 
 procedure TBrainFuckCompiler.WriteIn;
 begin
-  WriteMov(rEax, FCellsReg, FCellsReg);
-  WritePush(rEax);
+  WriteMov(rEax, FCellsReg, FCellsReg, msByte);
 
   if FOpt then
-    WriteCall(FInReg)
+  begin
+    WritePush(rEax);
+    WriteCall(FInReg);
+    WritePop(rEcx);
+  end
   else
     WriteCall(@Print);
-
-  WritePop(rEcx);
 
   Inc(FInCount);
 end;
@@ -549,7 +548,7 @@ begin
   begin
     WritePush(FOutReg);
     WritePush(FInReg);
-    WriteMov(FInReg, Cardinal(@putchar)); // reg = @printf
+    WriteMov(FInReg, Cardinal(@putchar));
     WriteMov(FOutReg, Cardinal(@getchar));
   end;
 
@@ -560,6 +559,12 @@ begin
 
   // Write pointer at memory cells
   WriteLea(FCellsReg, rEsp, FCellStart);
+end;
+
+procedure TBrainFuckCompiler.WriteStackFrame;
+begin
+  WritePush(rEbp);
+  WriteMov(rEbp, rEsp);
 end;
 
 end.

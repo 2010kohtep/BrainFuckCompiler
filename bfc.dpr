@@ -43,7 +43,6 @@ procedure Init;
 begin
   // To do list:
 
-  // - Fix DB<PChar> stuff
   // - Cell offset to avoid use add/sub/inc/dec
 
   Compiler.Create;
