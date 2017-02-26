@@ -4,7 +4,7 @@ interface
 
 type
   TNumberScale = (nsNo, nsBy2, nsBy4, nsBy8);
-  TAddrSize = (msByte, msWord, msDWord);
+  TAddrSize = (msByte = 1, msWord = 2, msDWord = 4);
   TCmdPrefix = (cpRegSize   = $66,  // Overrides operand size (eax -> ax)
                 cpAddrSize  = $67,  // Overrides address size
                 cpWait      = $9B,  // wait

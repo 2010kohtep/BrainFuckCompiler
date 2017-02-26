@@ -44,6 +44,7 @@ begin
   // To do list:
 
   // - Cell offset to avoid use add/sub/inc/dec
+  // - NoOpt mode crash when using WriteAdd/WriteSub
 
   Compiler.Create;
 
@@ -59,7 +60,8 @@ begin
     PrintSwitchValue('-F <path>', 'Source file.');
     PrintSwitchValue('-T <target>', 'Target platform (win32, win64, linux).');
     PrintSwitchValue('-C <count>', 'Cells count.');
-    PrintSwitchValue('-B <position>', 'Start cell position.');
+    PrintSwitchValue('-B <position>', 'Start cell position (center, left, right, number).');
+    PrintSwitchValue('-S <size>', 'Single cell size.');
     PrintSwitchValue('-O', 'Enable code optimization.');
     Exit;
   end

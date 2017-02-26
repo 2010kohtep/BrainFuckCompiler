@@ -32,9 +32,13 @@ type
 
     FLastCmdsData: array[0..15] of Integer;
     FLastCmds: TStack;
+
+    FLoopStack: TStack;
+    FLoopData: array[0..255] of Integer;
   protected
     FOpt: Boolean;
     FCells: Integer;
+    FCellSize: TAddrSize;
   public
     property Optimization: Boolean read FOpt write FOpt;
     property CellsCount: Integer read FCells;
@@ -47,6 +51,8 @@ type
     procedure WriteEpilogue; // BrainFuck binary code end (data release and exit)
     procedure WriteIn;
     procedure WriteOut;
+    procedure WriteLoopBegin;
+    procedure WriteLoopEnd;
 
     procedure Create;
 
@@ -95,7 +101,9 @@ begin
 
   FOpt := False;
 
-  FCells := CELLS_DEF; // Cells array size (inits in prologue)
+  FCellSize := msByte;
+
+  FCells := CELLS_DEF * Ord(FCellSize); // Cells array size (inits in prologue)
   FOpt := False; // Optimization
   FInCount := 0; // Amount of "." calls
 
@@ -106,8 +114,10 @@ begin
   FSrcPos := 0; // Command number that processes by the interpreter
   FCellStart := FCells div 2;
 
-  FillChar(FLastCmdsData[0], SizeOf(FLastCmdsData), 0);
   FLastCmds.Create(@FLastCmdsData[0], SizeOf(FLastCmdsData));
+
+  // Create a stack array of addresses. Needs to work with cycles.
+  FLoopStack.Create(@FLoopData[0], SizeOf(FLoopData));
 end;
 
 procedure TBrainFuckCompiler.ExecuteCode;
@@ -119,6 +129,7 @@ end;
 
 procedure TBrainFuckCompiler.Init;
 var
+  I: Integer;
   Value: string;
 begin
   if FindCmdLineSwitch('F', Value) then
@@ -162,6 +173,17 @@ begin
     else
       raise Exception.Create('TBrainFuckCompiler.Init: Unknown target.');
   end;
+
+  if FindCmdLineSwitch('S', Value) then
+  begin
+    if not TryStrToInt(Value, I) or not (I in [1, 2, 4]) then
+      raise Exception.Create('TBrainFuckCompiler.Init: Incorrect cell size.');
+
+    FCellSize := TAddrSize(I);
+  end;
+
+  FCells := FCells * Ord(FCellSize);
+  FCellStart := FCellStart * Ord(FCellSize);
 end;
 
 procedure TBrainFuckCompiler.LoadFromFile(FileName: string);
@@ -206,13 +228,9 @@ end;
 
 procedure TBrainFuckCompiler.CompileCode;
 var
-  JmpBegin: Pointer;
   P: PChar;
   C: Char;
   CmdCount: Integer;
-
-  LoopStack: TStack;
-  LoopData: array[0..255] of Integer;
 
   Cells: array of Byte;
   CellsPtr: Integer;
@@ -225,41 +243,23 @@ begin
   WritePrologue;
   // Write pointer to "Code" first symbol for easier way to work with it
   P := PChar(FSrc);
-  // Create a stack array of addresses. Needs to work with cycles.
-  LoopStack.Create(@LoopData[0], SizeOf(LoopData));
 
-  SetLength(Cells, FCells);
+  SetLength(Cells, FCells * Ord(FCellSize));
   CellsPtr := FCellStart;
 
   if not FOpt then
   begin
     while P^ <> #0 do
     begin
-      C := P^;
-
-      case C of
-        '>': WriteInc(FCellsReg);
-        '<': WriteDec(FCellsReg);
-        '+': WriteInc(FCellsReg, msByte);
-        '-': WriteDec(FCellsReg, msByte);
+      case P^ of
+        '>': WriteAdd(FCellsReg, Ord(FCellSize));
+        '<': WriteSub(FCellsReg, Ord(FCellSize));
+        '+': WriteInc(FCellsReg, FCellsReg, FCellSize); // WriteAdd(1, FCellsReg, FCellsReg, FCellSize);
+        '-': WriteDec(FCellsReg, FCellsReg, FCellSize); // WriteSub(1, FCellsReg, FCellsReg, FCellSize);
         '.': WriteIn;
         ',': WriteOut;
-        '[':
-        begin
-          WriteCmpMem(FCellsReg, 0);
-          WriteJump(jtJz, Pointer($CCCCCCCC));
-          LoopStack.Push<Pointer>(IP);
-        end;
-        ']':
-        begin
-          if LoopStack.Length = 0 then
-            RaiseException('Loop is not initialized by "%s" command.', ['[']);
-
-          JmpBegin := Pointer(LoopStack.Pop);
-          WriteCmpMem(FCellsReg, 0);
-          WriteJump(jtJnz, JmpBegin);
-          PPointer(@PByte(JmpBegin)[-4])^ := Relative(IP, @PByte(JmpBegin)[-5]);
-        end;
+        '[': WriteLoopBegin;
+        ']': WriteLoopEnd;
       end;
 
       Inc(P);
@@ -271,7 +271,7 @@ begin
     begin
       if CheckCode('[-]') or CheckCode('[+]') then
       begin
-        WriteMov(0, FCellsReg, FCellsReg, msByte);
+        WriteMov(0, FCellsReg, FCellsReg, FCellSize);
 
         FLastCmds.Push<Char>('[');
         FLastCmds.Push<Char>(P[1]);
@@ -314,52 +314,84 @@ begin
         case C of
           '>':
           begin
-            if CmdCount > 1 then
+            if FCellSize <> msByte then
             begin
-              WriteAdd(FCellsReg, CmdCount);
-              Inc(CellsPtr, CmdCount);
+              WriteAdd(FCellsReg, CmdCount * Ord(FCellSize));
+              Inc(CellsPtr, CmdCount * Ord(FCellSize));
             end
             else
             begin
-              WriteInc(FCellsReg);
-              Inc(CellsPtr);
+              if CmdCount > 1 then
+              begin
+                WriteAdd(FCellsReg, CmdCount * Ord(FCellSize));
+                Inc(CellsPtr, CmdCount * Ord(FCellSize));
+              end
+              else
+              begin
+                WriteInc(FCellsReg);
+                Inc(CellsPtr);
+              end;
             end;
           end;
 
           '<':
-          if CmdCount > 1 then
+          if FCellSize <> msByte then
           begin
-            WriteSub(FCellsReg, CmdCount);
-            Dec(CellsPtr, CmdCount);
+            WriteSub(FCellsReg, CmdCount * Ord(FCellSize));
+            Dec(CellsPtr, CmdCount * Ord(FCellSize));
           end
           else
           begin
-            WriteDec(FCellsReg);
-            Dec(CellsPtr);
+            if CmdCount > 1 then
+            begin
+              WriteSub(FCellsReg, CmdCount * Ord(FCellSize));
+              Dec(CellsPtr, CmdCount * Ord(FCellSize));
+            end
+            else
+            begin
+              WriteDec(FCellsReg);
+              Dec(CellsPtr);
+            end;
           end;
 
           '+':
-          if CmdCount > 1 then
+          if FCellSize <> msByte then
           begin
-            WriteAddMem(FCellsReg, CmdCount);
-            Inc(Cells[CellsPtr], CmdCount);
+            WriteAdd(CmdCount, FCellsReg, FCellsReg, FCellSize);
+            Inc(Cells[CellsPtr], CmdCount * Ord(FCellSize));
           end
           else
           begin
-            WriteInc(FCellsReg, msByte);
-            Inc(Cells[CellsPtr]);
+            if CmdCount > 1 then
+            begin
+              WriteAdd(CmdCount, FCellsReg, FCellsReg, FCellSize);
+              Inc(Cells[CellsPtr], CmdCount);
+            end
+            else
+            begin
+              WriteInc(FCellsReg, FCellsReg, FCellSize);
+              Inc(Cells[CellsPtr]);
+            end;
           end;
 
           '-':
-          if CmdCount > 1 then
+          if FCellSize <> msByte then
           begin
-            WriteSubMem(FCellsReg, CmdCount);
-            Dec(Cells[CellsPtr], CmdCount);
+            WriteSub(CmdCount, FCellsReg, FCellsReg, FCellSize);
+            Dec(Cells[CellsPtr], CmdCount * Ord(FCellSize));
           end
           else
           begin
-            WriteDec(FCellsReg, msByte);
-            Dec(Cells[CellsPtr]);
+            if CmdCount > 1 then
+            begin
+              WriteSub(CmdCount, FCellsReg, FCellsReg, FCellSize);
+              Dec(Cells[CellsPtr], CmdCount);
+            end
+            else
+            begin
+              WriteDec(FCellsReg, FCellsReg, FCellSize);
+              Dec(Cells[CellsPtr]);
+            end;
           end;
         end;
 
@@ -372,44 +404,8 @@ begin
       case C of
         '.': WriteIn;
         ',': WriteOut;
-        '[':
-        begin
-//          if Cells[CellsPtr] = 0 then
-//          begin
-//            P2 := StrScan(P, ']');
-//            if P2 = nil then
-//              RaiseException('Cannot find end loop.');
-//
-//            Inc(FSrcPos, Integer(P2 - P));
-//            P := P2 + 1;
-//
-//            Continue;
-//          end;
-
-          // We don't need to create "cmp" instruction because "add", "sub", "inc"
-          // and "dec" ones are already set ZF before
-          if not (Char(FLastCmds.GetLast) in ['+', '-']) then
-            WriteCmpMem(FCellsReg, 0);
-
-          // Create dummy jump which will be contain skip loop address
-          WriteJump(jtJz, Pointer($CCCCCCCC));
-
-          LoopStack.Push<Pointer>(IP);
-        end;
-
-        ']':
-        begin
-          if LoopStack.Length = 0 then
-            RaiseException('Loop is not initialized by "%s" command.', ['[']);
-
-          JmpBegin := Pointer(LoopStack.Pop);
-
-          if not (Char(FLastCmds.GetLast) in ['+', '-']) then
-            WriteCmpMem(FCellsReg, 0);
-
-          WriteJump(jtJnz, JmpBegin);
-          PPointer(@PByte(JmpBegin)[-4])^ := Relative(IP, @PByte(JmpBegin)[-5]);
-        end;
+        '[': WriteLoopBegin;
+        ']': WriteLoopEnd;
       end;
 
       FLastCmds.Push<Char>(C);
@@ -469,7 +465,7 @@ end;
 
 procedure TBrainFuckCompiler.WriteIn;
 begin
-  WriteMov(rEax, FCellsReg, FCellsReg, msByte);
+  WriteMov(rEax, FCellsReg, FCellsReg, FCellSize);
 
   if FOpt then
   begin
@@ -481,6 +477,44 @@ begin
     WriteCall(@Print);
 
   Inc(FInCount);
+end;
+
+procedure TBrainFuckCompiler.WriteLoopBegin;
+begin
+  //   if Cells[CellsPtr] = 0 then
+  //   begin
+  //     P2 := StrScan(P, ']');
+  //     if P2 = nil then
+  //       RaiseException('Cannot find end loop.');
+  //
+  //     Inc(FSrcPos, Integer(P2 - P));
+  //     P := P2 + 1;
+  //
+  //     Continue;
+  //   end;
+
+  // We don't need to create "cmp" instruction because "add", "sub", "inc"
+  // and "dec" ones are already set ZF before
+  if not (Char(FLastCmds.GetLast) in ['+', '-']) then
+    WriteCmp(0, FCellsReg, FCellsReg, FCellSize);
+
+  // Create dummy jump which will be contain skip loop address
+  WriteJump(jtJz, Pointer($CCCCCCCC));
+
+  FLoopStack.Push<Pointer>(IP);
+end;
+
+procedure TBrainFuckCompiler.WriteLoopEnd;
+var
+  JmpBegin: Pointer;
+begin
+  if FLoopStack.Length = 0 then
+    RaiseException('Loop is not initialized by "%s" command.', ['[']);
+
+  JmpBegin := Pointer(FLoopStack.Pop);
+  WriteCmp(0, FCellsReg, FCellsReg, FCellSize);
+  WriteJump(jtJnz, JmpBegin);
+  PPointer(@PByte(JmpBegin)[-4])^ := Relative(IP, @PByte(JmpBegin)[-5]);
 end;
 
 procedure TBrainFuckCompiler.WriteMemSet(Reg: TRegIndex; Size: Cardinal; Value: Integer);

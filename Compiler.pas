@@ -16,7 +16,7 @@ type
   TCompiler = object
   strict private
     function InstructionPtr: Pointer;
-  strict protected
+  protected
     FBuffer: TBuffer;
 
     FTarget: TTarget;
@@ -55,8 +55,8 @@ type
     procedure DQ(const Values: array of Int64); overload;
     {$ENDREGION}
 
-    procedure WriteAnd(Dest, Base, Index: TRegIndex; RegSize: TAddrSize = msDWord; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteAnd(Value: Integer; Base, Index: TRegIndex; RegSize: TAddrSize = msDWord; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
+    procedure WriteAnd(Dest, Base, Index: TRegIndex; RegSize: TAddrSize = msDWord; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteAnd(Dest, Source: TRegIndex); overload;
     procedure WriteAnd(Dest: TRegIndex; Value: Integer); overload;
 
@@ -69,15 +69,17 @@ type
     procedure WriteLea(Dest, Source: TRegIndex; Offset: Integer = 0); overload;
     procedure WriteLea(Dest: TRegIndex; Value: Integer); overload;
 
+    procedure WriteAdd(Value: Integer; Base, Index: TRegIndex; RegSize: TAddrSize = msDWord; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteAdd(Dest, Base, Index: TRegIndex; RegSize: TAddrSize = msDWord; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteAdd(Dest: TRegIndex; Value: Integer); overload;
     procedure WriteAdd(Dest, Source: TRegIndex); overload;
 
-    // ...
-
+    procedure WriteSub(Value: Integer; Base, Index: TRegIndex; RegSize: TAddrSize = msDWord; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteSub(Dest, Base, Index: TRegIndex; RegSize: TAddrSize = msDWord; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteSub(Dest: TRegIndex; Value: Integer); overload;
     procedure WriteSub(Dest, Source: TRegIndex); overload;
+
+    // ...
 
     procedure WriteTest(Dest, Source: TRegIndex); overload;
     procedure WriteTest(Dest: TRegIndex; Value: Integer); overload;
@@ -86,6 +88,7 @@ type
     procedure WriteXor(Dest, Source: TRegIndex); overload;
     procedure WriteXor(Dest: TRegIndex; Value: Integer); overload;
 
+    procedure WriteCmp(Value: Integer; Base, Index: TRegIndex; RegSize: TAddrSize = msDWord; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteCmp(Dest, Base, Index: TRegIndex; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload; stdcall;
     procedure WriteCmp(Dest, Source: TRegIndex); overload;
     procedure WriteCmp(Dest: TRegIndex; Value: Integer); overload;
@@ -100,16 +103,17 @@ type
 
     procedure WriteNop;
 
+    procedure WriteJump(Jump: TJumpType; Here: Pointer);
     procedure WriteCall(Addr: Pointer); overload;
     procedure WriteCall(Reg: TRegIndex); overload;
 
     procedure WriteInt(Interrupt: Integer);
 
     procedure WriteInc(Dest: TRegIndex); overload;
-    procedure WriteInc(Dest: TRegIndex; Size: TAddrSize); overload;
+    procedure WriteInc(Base, Index: TRegIndex; RegSize: TAddrSize = msDWord; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload;
 
     procedure WriteDec(Dest: TRegIndex); overload;
-    procedure WriteDec(Dest: TRegIndex; Size: TAddrSize); overload;
+    procedure WriteDec(Base, Index: TRegIndex; RegSize: TAddrSize = msDWord; Scale: TNumberScale = nsNo; Offset: Integer = 0); overload;
 
     procedure WriteXchg(Dest, Source: TRegIndex); overload;
     procedure WriteXchg(Dest: TRegIndex; Address: Pointer); overload;
@@ -121,25 +125,10 @@ type
     procedure WriteShr(Reg: TRegIndex; Count: Byte);
     procedure WriteShl(Reg: TRegIndex; Count: Byte);
 
-    // Unacceptable code below ...
-
-    procedure WriteAddMem(RegTo, RegFrom: TRegIndex); overload;
-    procedure WriteAddMem(RegTo: TRegIndex; Value: Byte); overload;
-
-    procedure WriteSubMem(Reg: TRegIndex; Value: Byte); overload;
-
-    procedure WriteMovMem(RegTo, RegFrom: TRegIndex); overload;
-
-    procedure WriteJump(Jump: TJumpType; Here: Pointer);
-
-    procedure WriteCmpMem(Reg: TRegIndex; Value: Byte);
-
     procedure WriteMovS(Prefix: TCmdPrefix; Count: TAddrSize); overload;
     procedure WriteMovS(Count: TAddrSize); overload;
     procedure WriteStoS(Prefix: TCmdPrefix; Count: TAddrSize); overload;
     procedure WriteStoS(Count: TAddrSize); overload;
-
-    // Unacceptable code above ...
 
     class function IsRel8(Value: Integer): Boolean; static; inline;
     class procedure Swap(var FReg: TRegIndex; var SReg: TRegIndex); static; inline;
@@ -159,39 +148,20 @@ begin
   end;
 end;
 
-procedure TCompiler.WriteInc(Dest: TRegIndex; Size: TAddrSize);
+procedure TCompiler.WriteInc(Base, Index: TRegIndex; RegSize: TAddrSize;
+  Scale: TNumberScale; Offset: Integer);
 begin
-  case Size of
-    msByte:
-    begin
-      FBuffer.Write<Byte>($FE);
-    end;
-
-    msWord:
-    begin
-      WritePrefix(cpRegSize);
-      FBuffer.Write<Byte>($FF);
-    end;
-
-    msDWord:
-    begin
-      FBuffer.Write<Byte>($FF);
-    end;
-  end;
-
-  if Dest = rEbp then
-  begin
-    WriteModRM(atBaseAddr8B, Dest, TRegIndex(0));
-    FBuffer.Write<Byte>($00);
-    Exit;
-  end
+  if RegSize = msByte then
+    FBuffer.Write<Byte>($FE)
   else
   begin
-    WriteModRM(atIndirAddr, Dest, TRegIndex(0));
+    if RegSize = msWord then
+      WritePrefix(cpRegSize);
 
-    if Dest = rEsp then
-      WriteSIB(nsNo, Dest, Dest);
+    FBuffer.Write<Byte>($FF);
   end;
+
+  WriteBase(TRegIndex(0), Base, Index, Scale, Offset);
 end;
 
 procedure TCompiler.WriteInt(Interrupt: Integer);
@@ -380,12 +350,6 @@ begin
   WriteMovS(Count);
 end;
 
-procedure TCompiler.WriteMovMem(RegTo, RegFrom: TRegIndex);
-begin
-  FBuffer.Write<Byte>($88);
-  WriteModRM(atIndirAddr, RegTo, RegFrom);
-end;
-
 procedure TCompiler.WriteMovS(Count: TAddrSize);
 begin
   case Count of
@@ -416,40 +380,19 @@ begin
   WriteModRM(atRegisters, Dest, Source);
 end;
 
-procedure TCompiler.WriteDec(Dest: TRegIndex; Size: TAddrSize);
+procedure TCompiler.WriteDec(Base, Index: TRegIndex; RegSize: TAddrSize; Scale: TNumberScale; Offset: Integer);
 begin
-  case Size of
-    msByte:
-    begin
-      FBuffer.Write<Byte>($FE);
-    end;
-
-    msWord:
-    begin
-      WritePrefix(cpRegSize);
-      FBuffer.Write<Byte>($FF);
-    end;
-
-    msDWord:
-    begin
-      WritePrefix(cpRegSize);
-      FBuffer.Write<Byte>($FF);
-    end;
-  end;
-
-  if Dest = rEbp then
-  begin
-    WriteModRM(atBaseAddr8B, Dest, TRegIndex(1));
-    FBuffer.Write<Byte>($00);
-    Exit;
-  end
+  if RegSize = msByte then
+    FBuffer.Write<Byte>($FE)
   else
   begin
-    WriteModRM(atIndirAddr, Dest, TRegIndex(1));
+    if RegSize = msWord then
+      WritePrefix(cpRegSize);
 
-    if Dest = rEsp then
-      WriteSIB(nsNo, Dest, Dest);
+     FBuffer.Write<Byte>($FF);
   end;
+
+  WriteBase(TRegIndex(1), Base, Index, Scale, Offset);
 end;
 
 procedure TCompiler.WriteInc(Dest: TRegIndex);
@@ -578,28 +521,30 @@ begin
   end;
 end;
 
-procedure TCompiler.WriteAddMem(RegTo, RegFrom: TRegIndex);
-begin
-  FBuffer.Write<Byte>($01);
-
-  if RegTo = rEbp then
-  begin
-    WriteModRM(atBaseAddr8B, RegTo, RegFrom);
-    FBuffer.Write<Byte>(0);
-  end
-  else
-  begin
-    WriteModRM(atIndirAddr, RegTo, RegFrom);
-
-    if RegTo = rEsp then
-      WriteSIB(nsNo, RegTo, RegTo);
-  end;
-end;
-
 procedure TCompiler.WriteAdd(Dest, Source: TRegIndex);
 begin
   FBuffer.Write<Byte>($01);
   WriteModRM(atRegisters, Dest, Source);
+end;
+
+procedure TCompiler.WriteAdd(Value: Integer; Base, Index: TRegIndex;
+  RegSize: TAddrSize; Scale: TNumberScale; Offset: Integer);
+begin
+  if RegSize = msByte then
+    FBuffer.Write<Byte>($80)
+  else
+  begin
+    if RegSize = msWord then
+    begin
+      WritePrefix(cpRegSize);
+      FBuffer.Write<Byte>($81);
+    end
+    else
+      FBuffer.Write<Byte>($81)
+  end;
+
+  WriteBase(TRegIndex(0), Base, Index, Scale, Offset);
+  WriteImm(Value, RegSize);
 end;
 
 procedure TCompiler.WriteAdd(Dest, Base, Index: TRegIndex; RegSize: TAddrSize;
@@ -617,13 +562,6 @@ begin
     FBuffer.Write<Byte>($03);
 
   WriteBase(Dest, Base, Index, Scale, Offset);
-end;
-
-procedure TCompiler.WriteAddMem(RegTo: TRegIndex; Value: Byte);
-begin
-  FBuffer.Write<Byte>($80);
-  FBuffer.Write<Byte>(Byte(RegTo));
-  FBuffer.Write<Byte>(Value);
 end;
 
 procedure TCompiler.WriteAnd(Value: Integer; Base, Index: TRegIndex;
@@ -766,19 +704,29 @@ begin
   end;
 end;
 
+procedure TCompiler.WriteCmp(Value: Integer; Base, Index: TRegIndex;
+  RegSize: TAddrSize; Scale: TNumberScale; Offset: Integer);
+begin
+  if RegSize = msByte then
+    FBuffer.Write<Byte>($80)
+  else
+  begin
+    if RegSize = msWord then
+      WritePrefix(cpRegSize);
+
+    FBuffer.Write<Byte>($81);
+  end;
+
+  WriteBase(TRegIndex(7), Base, Index, Scale, Offset);
+  WriteImm(Value, RegSize);
+end;
+
 procedure TCompiler.WriteCmp(Dest, Base, Index: TRegIndex; Scale: TNumberScale;
   Offset: Integer);
 begin
   FBuffer.Write<Byte>($3B);
 
   WriteBase(Dest, Base, Index, Scale, Offset);
-end;
-
-procedure TCompiler.WriteCmpMem(Reg: TRegIndex; Value: Byte);
-begin
-  FBuffer.Write<Byte>($80);
-  WriteModRM(atIndirAddr, Reg, TRegIndex(7));
-  FBuffer.Write<Byte>(Value);
 end;
 
 procedure TCompiler.WriteCall(Addr: Pointer);
@@ -906,6 +854,24 @@ begin
   WriteModRM(atRegisters, Dest, Source);
 end;
 
+procedure TCompiler.WriteSub(Value: Integer; Base, Index: TRegIndex;
+  RegSize: TAddrSize; Scale: TNumberScale; Offset: Integer);
+begin
+  if RegSize = msByte then
+    FBuffer.Write<Byte>($80)
+  else
+  if RegSize = msWord then
+  begin
+    WritePrefix(cpRegSize);
+    FBuffer.Write<Byte>($81);
+  end
+  else
+    FBuffer.Write<Byte>($81);
+
+  WriteBase(TRegIndex(5), Base, Index, Scale, Offset);
+  WriteImm(Value, RegSize);
+end;
+
 procedure TCompiler.WriteSub(Dest, Base, Index: TRegIndex; RegSize: TAddrSize; Scale: TNumberScale;
   Offset: Integer);
 begin
@@ -921,13 +887,6 @@ begin
     FBuffer.Write<Byte>($2B);
 
   WriteBase(Dest, Base, Index, Scale, Offset);
-end;
-
-procedure TCompiler.WriteSubMem(Reg: TRegIndex; Value: Byte);
-begin
-  FBuffer.Write<Byte>($80);
-  WriteModRM(atIndirAddr, Reg, TRegIndex(5));
-  FBuffer.Write<Byte>(Value);
 end;
 
 procedure TCompiler.WriteTest(Dest: TRegIndex; Value: Integer);
